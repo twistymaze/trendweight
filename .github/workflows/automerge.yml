@@ -1,7 +1,7 @@
 name: automerge
 on:
   pull_request:
-    types: [opened, reopened, synchronize, labeled]
+    types: [opened, reopened, synchronize, labeled, review_requested]
 permissions:
   contents: write
   pull-requests: write
@@ -9,7 +9,7 @@ jobs:
   call:
     # Release Please upgrades need review even when the shared preset labels them.
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'manual-review') }}
-    uses: twistymaze/renovate-config/.github/workflows/automerge.yml@5b0b2f2397d9c1ce221a7a36aa62c64ec35ab9f7 # main
+    uses: twistymaze/renovate-config/.github/workflows/automerge.yml@4e83a54f5caf273e581b67b1e74b1b9a60857efd # main
     with:
       app-client-id: ${{ vars.AUTOMERGE_APP_CLIENT_ID }}
     secrets:
