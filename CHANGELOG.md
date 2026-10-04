@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.12.4](https://github.com/twistymaze/trendweight/compare/v2.12.3...v2.12.4) (2026-10-04)
+
+
+### Documentation
+
+* add product strategy (STRATEGY.md) ([d147195](https://github.com/twistymaze/trendweight/commit/d147195b0e2fe0468778ffdb51524e18c0920fb3))
+* capture email feedback intake idea ([b341467](https://github.com/twistymaze/trendweight/commit/b3414674a8b563098ef0aee44e284bc1f03a3e2d))
+* forbid Compound Engineering branding in PRs and commits ([c6c37ee](https://github.com/twistymaze/trendweight/commit/c6c37eeba1d6eea38a840b011ba56a4a5039b060))
+* limit direct pushes to main to documentation-only changes ([0777bb0](https://github.com/twistymaze/trendweight/commit/0777bb0613b7ac7282075489efccaba72563df7f))
+
+### Dependencies
+
+* Updated dependencies.
+
 ## [2.12.3](https://github.com/twistymaze/trendweight/compare/v2.12.2...v2.12.3) (2026-09-26)
 
 
