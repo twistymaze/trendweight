@@ -42,6 +42,8 @@ without weakening repository checks.
 - Use conventional commits (`fix:`, `refactor:`, `test:`, `docs:`, `chore:`), with
   one independently reversible concern per commit. Reserve `feat:` for significant
   new user functionality; do not use `BREAKING CHANGE` in commit messages.
+- Do not add Compound Engineering branding or badges to pull request descriptions
+  or commit messages.
 
 ## Operational boundaries
 
