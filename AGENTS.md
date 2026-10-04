@@ -47,6 +47,9 @@ without weakening repository checks.
 
 - Preserve unrelated edits. Commit/push/deploy only when authorized; deployment is
   a separate action from local validation.
+- Only documentation-only changes may be pushed directly to `main` without the
+  owner's explicit approval. Code changes go through a pull request unless the
+  owner explicitly authorizes a direct push.
 - Never print credentials, OAuth codes, signed state, or token response bodies.
 - Review executable editor/agent hooks and install scripts as code. Do not run
   obfuscated or unexplained startup scripts to investigate them.
