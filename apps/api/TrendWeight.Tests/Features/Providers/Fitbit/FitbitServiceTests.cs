@@ -708,7 +708,7 @@ public class FitbitServiceTests
             x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Fitbit rate limit:")),
+                It.Is<It.IsAnyType>((v, t) => v != null && v.ToString()!.Contains("Fitbit rate limit:")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.AtLeastOnce);
