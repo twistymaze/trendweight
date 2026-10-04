@@ -1,0 +1,6 @@
+# Gitignored files that Claude Code copies into each new worktree.
+# The syntax is the same as .gitignore. Only files that git ignores are copied.
+
+# Local secrets and direnv loader for the web and API dev servers.
+.env
+.envrc

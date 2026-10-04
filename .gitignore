@@ -146,3 +146,6 @@ context_portal/
 
 apps/api/TrendWeight/appsettings.Development.json
 .dummy_trigger*
+
+# Compound Engineering scratch
+.context/compound-engineering/
