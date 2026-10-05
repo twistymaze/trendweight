@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.12.5](https://github.com/twistymaze/trendweight/compare/v2.12.4...v2.12.5) (2026-10-05)
+
+### Dependencies
+
+* Updated dependencies.
+
 ## [2.12.4](https://github.com/twistymaze/trendweight/compare/v2.12.3...v2.12.4) (2026-10-04)
 
 
