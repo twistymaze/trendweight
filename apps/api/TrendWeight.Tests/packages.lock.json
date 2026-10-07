@@ -467,8 +467,8 @@
       },
       "Scalar.AspNetCore": {
         "type": "Transitive",
-        "resolved": "2.17.12",
-        "contentHash": "0sikVHhTJUvHk2XAw9Am5o5aws2dxj5+H+yTP2kQQHhtOlC087O7HTYDvFk+cNKdHao6wlHu9uWVLjWODyUguQ=="
+        "resolved": "2.17.13",
+        "contentHash": "+R0eJtJIIHW9owY61rIOgR2lywjZnjqUPAM7ll+lZYML7mZ4LxokG6wpAmkuyaLS1Ml4fI4kdAC2U6KkdrDDiA=="
       },
       "Supabase": {
         "type": "Transitive",
@@ -657,7 +657,7 @@
         "type": "Project",
         "dependencies": {
           "Microsoft.AspNetCore.OpenApi": "[10.0.12, )",
-          "Scalar.AspNetCore": "[2.17.12, )",
+          "Scalar.AspNetCore": "[2.17.13, )",
           "Supabase": "[8.2.0, )",
           "System.IdentityModel.Tokens.Jwt": "[8.23.0, )",
           "TimeZoneConverter": "[7.2.0, )",

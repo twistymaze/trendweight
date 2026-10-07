@@ -18,7 +18,7 @@
   <ItemGroup>
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
-    <PackageReference Include="Scalar.AspNetCore" Version="2.17.12" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.17.13" />
     <PackageReference Include="Supabase" Version="8.2.0" />
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
     <PackageReference Include="TimeZoneConverter" Version="7.2.0" />
