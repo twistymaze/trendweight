@@ -1,7 +1,7 @@
 {
   "name": "trendweight-monorepo",
   "private": true,
-  "packageManager": "npm@12.2.0",
+  "packageManager": "npm@12.2.1",
   "workspaces": [
     "apps/api",
     "apps/web"
@@ -31,7 +31,7 @@
     "husky": "9.1.7",
     "lint-staged": "17.6.0",
     "release-please": "17.11.2",
-    "turbo": "2.11.8"
+    "turbo": "2.11.9"
   },
   "engines": {
     "node": ">=26",
