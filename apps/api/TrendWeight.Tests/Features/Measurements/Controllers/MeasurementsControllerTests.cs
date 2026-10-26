@@ -159,7 +159,7 @@ public class MeasurementsControllerTests
         // Arrange
         var userId = Guid.NewGuid();
         SetupAuthenticatedUser(userId.ToString());
-        _orchestrationServiceMock.Setup(x => x.GetForUserAsync(It.IsAny<Guid>(), It.IsAny<Guid?>()))
+        _orchestrationServiceMock.Setup(x => x.GetForUserAsync(userId, It.IsAny<Guid?>()))
             .ThrowsAsync(new Exception("Database error"));
 
         // Act

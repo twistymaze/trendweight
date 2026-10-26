@@ -201,11 +201,10 @@ public class RequestPipelineTests : IClassFixture<StartupTestFactory>
         // client is a typed client, so each resolution gets a factory-managed handler.
         using var scope = _factory.Services.CreateScope();
 
-        var tokens = scope.ServiceProvider.GetRequiredService<IClerkTokenService>();
+        scope.ServiceProvider.GetRequiredService<IClerkTokenService>();
         var first = scope.ServiceProvider.GetRequiredService<IClerkService>();
         var second = scope.ServiceProvider.GetRequiredService<IClerkService>();
 
-        tokens.Should().NotBeNull();
         first.Should().BeOfType<ClerkService>();
         second.Should().NotBeSameAs(first);
     }
@@ -367,6 +366,36 @@ public class RequestPipelineTests : IClassFixture<StartupTestFactory>
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         using var document = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         document.RootElement.TryGetProperty("title", out _).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("/api/measurements/manual", "test-clerk-jwt")]
+    [InlineData("/api/v1/measurements/manual", StartupTestFactory.ApiKey)]
+    public async Task UnhandledServiceExceptions_BecomeServerErrorsWithoutTheirMessage(string path, string token)
+    {
+        // Controllers let unexpected service failures propagate; the pipeline must turn
+        // them into a 500 that does not echo the exception in production.
+        const string secret = "Npgsql connection to db.internal:5432 failed for role service_role";
+        var manual = new Mock<IManualDataService>();
+        manual.Setup(x => x.GetReadingsAsync(It.IsAny<Guid>())).ThrowsAsync(new InvalidOperationException(secret));
+        using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<IManualDataService>();
+            services.AddSingleton(manual.Object);
+        }));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        body.Should().NotContain("db.internal").And.NotContain(nameof(InvalidOperationException));
+        using var document = System.Text.Json.JsonDocument.Parse(body);
+        document.RootElement.GetProperty("errorCode").GetString().Should().Be("INTERNAL_ERROR");
+        document.RootElement.GetProperty("error").GetString().Should().Be("An error occurred while processing your request");
+        document.RootElement.TryGetProperty("details", out _).Should().BeFalse();
+        manual.Verify(x => x.GetReadingsAsync(It.IsAny<Guid>()), Times.Once);
     }
 
     [Fact]

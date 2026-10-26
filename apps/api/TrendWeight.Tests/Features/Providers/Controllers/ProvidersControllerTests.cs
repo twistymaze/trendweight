@@ -289,7 +289,7 @@ public class ProvidersControllerTests
         // Arrange
         var userId = Guid.NewGuid();
         SetupAuthenticatedUser(userId.ToString());
-        _providerLinkServiceMock.Setup(x => x.GetAllForUserAsync(It.IsAny<Guid>()))
+        _providerLinkServiceMock.Setup(x => x.GetAllForUserAsync(userId))
             .ThrowsAsync(new Exception("Database error"));
 
         // Act
