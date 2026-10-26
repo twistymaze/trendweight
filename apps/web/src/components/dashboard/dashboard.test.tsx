@@ -1,157 +1,200 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { LocalDate } from "@js-joda/core";
+import { screen } from "@testing-library/react";
+import { http } from "msw";
+import { Suspense } from "react";
+import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from "@tanstack/react-router";
+import type { ProviderSyncStatus } from "@/lib/api/types";
+import type { ProfileData } from "@/lib/core/interfaces";
+import { parseSharingSearch } from "@/lib/routes/sharing-search";
+import { mockAuth, TEST_TOKEN } from "@/test/auth";
+import { freezeClock } from "@/test/clock";
+import { buildComputedMeasurement, buildMeasurementsResponse, buildProfileResponse } from "@/test/fixtures";
+import { server } from "@/test/mocks/server";
+import { json, recordRequests } from "@/test/msw";
+import { renderWithProviders } from "@/test/render";
 import Dashboard from "./dashboard";
-import { useComputeDashboardData } from "@/lib/dashboard/hooks";
-import { useEmbedParams } from "@/lib/hooks/use-embed-params";
-import type { DashboardData } from "@/lib/dashboard/dashboard-context";
 
-vi.mock("@tanstack/react-router", () => ({
-  Navigate: ({ to }: { to: string }) => <div data-testid="navigate">{to}</div>,
+vi.mock("@/lib/auth/use-auth");
+// Highcharts cannot draw in jsdom, so only the chart canvas is replaced; the Chart wrapper,
+// its options hook and every other dashboard section run for real.
+vi.mock("highcharts-react-official", () => ({
+  HighchartsReact: () => <div role="img" aria-label="Trend chart" />,
 }));
-vi.mock("@/lib/dashboard/hooks");
-vi.mock("@/lib/hooks/use-embed-params");
-vi.mock("@/lib/dashboard/context", () => ({
-  DashboardProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
-vi.mock("./embed-dashboard", () => ({ EmbedDashboard: () => <div data-testid="embed-dashboard" /> }));
-vi.mock("./buttons", () => ({ default: () => <div data-testid="buttons" /> }));
-vi.mock("./chart/chart", () => ({ default: () => <div data-testid="chart" /> }));
-vi.mock("./currently", () => ({ default: () => <div data-testid="currently" /> }));
-vi.mock("./deltas", () => ({ default: () => <div data-testid="deltas" /> }));
-vi.mock("./stats", () => ({ default: () => <div data-testid="stats" /> }));
-vi.mock("./recent-readings", () => ({ default: () => <div data-testid="recent-readings" /> }));
-vi.mock("./help-link", () => ({ default: () => <div data-testid="help-link" /> }));
-vi.mock("./no-data-card", () => ({ NoDataCard: () => <div data-testid="no-data-card" /> }));
-vi.mock("./provider-sync-errors", () => ({ default: () => <div data-testid="provider-sync-errors" /> }));
-vi.mock("@/components/log/quick-log-button", () => ({ QuickLogButton: () => <button>Log Weight</button> }));
-vi.mock("@/components/notices/fitbit-sunset-notice", () => ({ FitbitSunsetNotice: () => <div data-testid="fitbit-sunset-notice" /> }));
 
-const measurement = {
-  date: LocalDate.of(2026, 9, 1),
-  source: "manual",
-  actualWeight: 80,
-  trendWeight: 80,
-  weightIsInterpolated: false,
-  fatIsInterpolated: false,
-};
-const dataPoint = { date: LocalDate.of(2026, 9, 1), source: "manual", actual: 80, trend: 80, isInterpolated: false };
+// Fifteen daily kg readings ending on the frozen "today" (2024-01-15); trend falls 0.1 kg a day
+// from 82.0 to 80.6, with no body fat
+const KG_READINGS = Array.from({ length: 15 }, (_, i) =>
+  buildComputedMeasurement({
+    date: `2024-01-${String(i + 1).padStart(2, "0")}`,
+    actualWeight: 82 - i * 0.1,
+    trendWeight: 82 - i * 0.1,
+    actualFatPercent: undefined,
+    trendFatPercent: undefined,
+    trendFatMass: undefined,
+    trendLeanMass: undefined,
+  }),
+);
 
-function mockData(overrides: Partial<DashboardData> = {}) {
-  vi.mocked(useComputeDashboardData).mockReturnValue({
-    dataPoints: [dataPoint],
-    measurements: [measurement],
-    mode: ["weight", vi.fn()],
-    timeRange: ["4w", vi.fn()],
-    profile: { firstName: "Jane", useMetric: false } as DashboardData["profile"],
-    weightSlope: 0,
-    activeSlope: 0,
-    deltas: [],
-    providerStatus: {},
-    isMe: true,
-    ...overrides,
-  });
+interface Backend {
+  user?: Partial<ProfileData>;
+  readings?: typeof KG_READINGS;
+  providerStatus?: Record<string, ProviderSyncStatus>;
+}
+
+// Serves the owner's endpoints and the shared ones (/api/profile/:code, /api/data/:code)
+function givenBackend({ user = {}, readings = KG_READINGS, providerStatus }: Backend = {}) {
+  server.use(
+    http.get("/api/profile", () => json(200, buildProfileResponse({ user }))),
+    http.get("/api/data", () => json(200, buildMeasurementsResponse({ computedMeasurements: readings, providerStatus }))),
+    http.get("/api/profile/:code", () => json(200, buildProfileResponse({ user, isMe: false }))),
+    http.get("/api/data/:code", () => json(200, buildMeasurementsResponse({ computedMeasurements: readings, providerStatus, isMe: false }))),
+  );
+}
+
+// The dashboard reads the sharing code, range/mode and embed flag from the router, so mount it in
+// a real router with an owner route and a sharing route using the app's search parser
+function renderDashboard(url: string) {
+  const dashboard = () => (
+    <Suspense fallback={<p>Loading dashboard</p>}>
+      <Dashboard />
+    </Suspense>
+  );
+  const rootRoute = createRootRoute({ component: Outlet });
+  const routeTree = rootRoute.addChildren([
+    createRoute({ getParentRoute: () => rootRoute, path: "/", component: () => <p>Home page</p> }),
+    createRoute({ getParentRoute: () => rootRoute, path: "/dashboard", component: dashboard }),
+    createRoute({ getParentRoute: () => rootRoute, path: "/u/$sharingCode", validateSearch: parseSharingSearch, component: dashboard }),
+  ]);
+  const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [url] }) });
+  return { router, ...renderWithProviders(<RouterProvider router={router} />, { syncProgress: true }) };
 }
 
 describe("Dashboard", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(useEmbedParams).mockReturnValue({});
-    mockData();
-  });
-
-  it("renders the embed dashboard when embedded", () => {
-    vi.mocked(useEmbedParams).mockReturnValue({ embed: true });
-    mockData({ isMe: false });
-
-    render(<Dashboard />);
-
-    expect(screen.getByTestId("embed-dashboard")).toBeInTheDocument();
-    expect(screen.queryByTestId("chart")).not.toBeInTheDocument();
-  });
-
-  describe("without measurements", () => {
-    it("shows the waiting card, sync errors and the log button to the owner", () => {
-      mockData({ measurements: [], dataPoints: [] });
-
-      render(<Dashboard />);
-
-      expect(screen.getByTestId("no-data-card")).toBeInTheDocument();
-      expect(screen.getByTestId("provider-sync-errors")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Log Weight" })).toBeInTheDocument();
-      expect(screen.queryByTestId("chart")).not.toBeInTheDocument();
-    });
-
-    it("sends a shared viewer home", () => {
-      mockData({ measurements: [], dataPoints: [], isMe: false });
-
-      render(<Dashboard />);
-
-      expect(screen.getByTestId("navigate")).toHaveTextContent("/");
-      expect(screen.queryByTestId("no-data-card")).not.toBeInTheDocument();
-    });
+    mockAuth();
+    window.localStorage.clear();
+    freezeClock();
   });
 
   describe("full dashboard", () => {
-    it("renders the chart, stats and controls for the owner", () => {
-      render(<Dashboard />);
+    it("shows the owner's current trend weight, change, stats and controls from the API data", async () => {
+      givenBackend({ user: { useMetric: true, goalWeight: 75, goalStart: "2023-11-01" } });
+      const recorder = recordRequests();
+      renderDashboard("/dashboard");
 
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Weight, Past 4 weeks");
-      expect(screen.getByTestId("buttons")).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { level: 2, name: "Weight, Past 4 weeks" })).toBeInTheDocument();
+      expect(screen.getByText("Current Weight")).toBeInTheDocument();
+      expect(screen.getByText("80.6 kg")).toBeInTheDocument();
+      expect(screen.getByText("-1.4 kg")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Overall Weight Statistics" })).toBeInTheDocument();
+      expect(screen.getByText((_, element) => element?.textContent === "You have 5.6 kg to lose to reach your goal.", { selector: "li" })).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "Trend chart" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Log Weight" })).toBeInTheDocument();
-      for (const id of ["chart", "currently", "recent-readings", "deltas", "stats", "help-link"]) {
-        expect(screen.getByTestId(id)).toBeInTheDocument();
-      }
-      expect(screen.queryByTestId("fitbit-sunset-notice")).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "What is all this?" })).toHaveAttribute("href", "/math");
+      expect(screen.queryByText("Heads-up for Fitbit users")).not.toBeInTheDocument();
+
+      const calls = await recorder.settled();
+      expect(calls.filter((call) => call.path === "/api/data").every((call) => call.headers.authorization === `Bearer ${TEST_TOKEN}`)).toBe(true);
     });
 
-    it("names the owner and hides the log button on a shared dashboard", () => {
-      mockData({ isMe: false, timeRange: ["all", vi.fn()] });
+    it("converts the kilogram API data to pounds for an imperial profile", async () => {
+      givenBackend({ user: { useMetric: false, goalWeight: 165, goalStart: "2023-11-01" } });
+      renderDashboard("/dashboard");
 
-      render(<Dashboard />);
+      // 80.6 kg trend = 177.7 lb; 82.0 kg → 80.6 kg is a 3.1 lb drop
+      expect(await screen.findByText("177.7 lb")).toBeInTheDocument();
+      expect(screen.getByText("-3.1 lb")).toBeInTheDocument();
+    });
 
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Weight, All Time for Jane");
+    it("names the owner and hides the log button on a shared dashboard", async () => {
+      givenBackend({ user: { firstName: "Jane" } });
+      renderDashboard("/u/abc123?range=all");
+
+      expect(await screen.findByRole("heading", { level: 2, name: "Weight, All Time for Jane" })).toBeInTheDocument();
+      expect(screen.getByText(/They have been tracking their weight/)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Log Weight" })).not.toBeInTheDocument();
     });
 
-    it("labels explore mode", () => {
-      mockData({ mode: ["fatpercent", vi.fn()], timeRange: ["explore", vi.fn()] });
+    it("labels the owner's persisted explore range", async () => {
+      window.localStorage.setItem("timeRange", JSON.stringify("explore"));
+      givenBackend();
+      renderDashboard("/dashboard");
 
-      render(<Dashboard />);
-
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Fat %, Explore");
+      expect(await screen.findByRole("heading", { level: 2, name: "Weight, Explore" })).toBeInTheDocument();
     });
 
-    it("shows the Fitbit sunset notice only while Fitbit still syncs", () => {
-      mockData({ providerStatus: { fitbit: { success: true } } });
-      const { unmount } = render(<Dashboard />);
-      expect(screen.getByTestId("fitbit-sunset-notice")).toBeInTheDocument();
-      unmount();
+    it("shows body fat as a percentage when the sharing URL selects fat %", async () => {
+      givenBackend({ readings: KG_READINGS.map((reading) => ({ ...reading, actualFatPercent: 0.25, trendFatPercent: 0.25 })) });
+      renderDashboard("/u/abc123?mode=fatpercent");
 
-      mockData({ providerStatus: { fitbit: { success: false, error: "disabled" } } });
-      render(<Dashboard />);
-      expect(screen.queryByTestId("fitbit-sunset-notice")).not.toBeInTheDocument();
+      expect(await screen.findByRole("heading", { level: 2, name: "Fat %, Past 4 weeks for Alex" })).toBeInTheDocument();
+      expect(screen.getByText("Current Fat %")).toBeInTheDocument();
+      expect(screen.getByText("25.0%")).toBeInTheDocument();
     });
 
-    it("does not show the Fitbit sunset notice to shared viewers", () => {
-      mockData({ isMe: false, providerStatus: { fitbit: { success: true } } });
+    it("shows the Fitbit sunset notice to the owner while Fitbit still syncs", async () => {
+      givenBackend({ providerStatus: { fitbit: { success: true } } });
+      renderDashboard("/dashboard");
 
-      render(<Dashboard />);
-
-      expect(screen.queryByTestId("fitbit-sunset-notice")).not.toBeInTheDocument();
+      expect(await screen.findByText("Heads-up for Fitbit users")).toBeInTheDocument();
     });
 
-    it("shows an empty state instead of chart and stats when a body-fat mode has no readings", () => {
-      mockData({ mode: ["fatmass", vi.fn()], dataPoints: [] });
+    it("drops the Fitbit sunset notice once Fitbit syncing is disabled", async () => {
+      givenBackend({ providerStatus: { fitbit: { success: false, error: "disabled" } } });
+      renderDashboard("/dashboard");
 
-      render(<Dashboard />);
+      await screen.findByText("Current Weight");
+      expect(screen.queryByText("Heads-up for Fitbit users")).not.toBeInTheDocument();
+    });
 
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Fat Mass, Past 4 weeks");
+    it("does not show the Fitbit sunset notice to shared viewers", async () => {
+      givenBackend({ providerStatus: { fitbit: { success: true } } });
+      renderDashboard("/u/abc123");
+
+      await screen.findByText("Current Weight");
+      expect(screen.queryByText("Heads-up for Fitbit users")).not.toBeInTheDocument();
+    });
+
+    it("shows an empty state instead of the chart and stats when a body-fat mode has no readings", async () => {
+      givenBackend();
+      renderDashboard("/u/abc123?mode=fatmass");
+
+      expect(await screen.findByRole("heading", { level: 2, name: /^Fat Mass, Past 4 weeks/ })).toBeInTheDocument();
       expect(screen.getByRole("status")).toHaveTextContent(/No body fat readings yet/);
-      expect(screen.getByTestId("buttons")).toBeInTheDocument();
-      for (const id of ["chart", "currently", "recent-readings", "deltas", "stats"]) {
-        expect(screen.queryByTestId(id)).not.toBeInTheDocument();
-      }
+      expect(screen.getByRole("radio", { name: "Fat Mass", checked: true })).toBeInTheDocument();
+      expect(screen.queryByRole("img", { name: "Trend chart" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Current Fat Mass/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Overall Weight Statistics" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("renders the compact embed view with the current value", async () => {
+    givenBackend({ user: { firstName: "Jane", useMetric: true } });
+    renderDashboard("/u/abc123?embed=true");
+
+    expect(await screen.findByText("Weight, Past 4 weeks for Jane")).toBeInTheDocument();
+    expect(screen.getByText("80.6 kg")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Trend chart" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Overall Weight Statistics" })).not.toBeInTheDocument();
+  });
+
+  describe("without measurements", () => {
+    it("shows the waiting card and the log button to the owner", async () => {
+      givenBackend({ readings: [] });
+      renderDashboard("/dashboard");
+
+      expect(await screen.findByRole("heading", { name: "Waiting for Data" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Log Weight" })).toBeInTheDocument();
+      expect(screen.queryByRole("img", { name: "Trend chart" })).not.toBeInTheDocument();
+    });
+
+    it("sends a shared viewer home", async () => {
+      givenBackend({ readings: [] });
+      const { router } = renderDashboard("/u/abc123");
+
+      expect(await screen.findByText("Home page")).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe("/");
+      expect(screen.queryByRole("heading", { name: "Waiting for Data" })).not.toBeInTheDocument();
     });
   });
 });

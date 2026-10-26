@@ -1,45 +1,62 @@
-import { render, screen } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { http } from "msw";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useToast } from "@/lib/hooks/use-toast";
+import { mockAuth } from "@/test/auth";
+import { freezeClock } from "@/test/clock";
+import { buildMeasurementsResponse, buildProfileResponse } from "@/test/fixtures";
+import { server } from "@/test/mocks/server";
+import { json, recordRequests } from "@/test/msw";
+import { renderWithProviders } from "@/test/render";
 import { QuickLogButton } from "./quick-log-button";
 
-vi.mock("@/lib/api/queries", () => ({
-  useProfile: () => ({ data: { useMetric: false } }),
-  useManualReadings: () => ({ data: [] }),
-  useLatestReading: () => ({}),
-}));
+vi.mock("@/lib/auth/use-auth");
+vi.mock("@/lib/hooks/use-toast");
 
-vi.mock("@/lib/api/mutations", () => ({
-  useSaveManualReading: () => ({ mutateAsync: vi.fn() }),
-  useDeleteManualReading: () => ({ mutateAsync: vi.fn() }),
-}));
-
-vi.mock("@/lib/hooks/use-toast", () => ({
-  useToast: () => ({ showToast: vi.fn() }),
-}));
-
+// The button lives on the dashboard; the dialog and menu only need Link and the current path
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ to, children, ...props }: { to: string; children: React.ReactNode }) => (
     <a href={to} {...props}>
       {children}
     </a>
   ),
-  useRouterState: () => "/dashboard",
+  useRouterState: ({ select }: { select: (state: { location: { pathname: string } }) => unknown }) => select({ location: { pathname: "/dashboard" } }),
 }));
 
 describe("QuickLogButton", () => {
-  it("opens the log dialog from the primary button", async () => {
+  beforeEach(() => {
+    mockAuth();
+    vi.mocked(useToast).mockReturnValue({ showToast: vi.fn() });
+    server.use(
+      http.get("/api/profile", () => json(200, buildProfileResponse({ user: { useMetric: false } }))),
+      http.get("/api/measurements/manual", () => json(200, [])),
+      http.get("/api/data", () => json(200, buildMeasurementsResponse({ computedMeasurements: [] }))),
+      http.put("/api/measurements/manual/:date", () => json(200, {})),
+    );
+  });
+
+  it("logs a weight from the dialog in kg for today, then closes it", async () => {
+    freezeClock("2024-01-15T12:00:00");
     const user = userEvent.setup();
-    render(<QuickLogButton />);
+    const recorder = recordRequests();
+    renderWithProviders(<QuickLogButton />);
 
     await user.click(screen.getByRole("button", { name: /Log Weight/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Log Weight" });
+    await user.type(await within(dialog).findByLabelText(/Weight/), "176.4");
+    await user.click(within(dialog).getByRole("button", { name: "Log Weight" }));
 
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    const [put] = (await recorder.settled()).filter((call) => call.method === "PUT");
+    expect(put.path).toBe("/api/measurements/manual/2024-01-15");
+    // 176.4 lb / 2.20462262 = 80.014 kg
+    expect(put.body).toEqual({ weight: 80.014 });
   });
 
   it("links to the manual readings page from the menu", async () => {
     const user = userEvent.setup();
-    render(<QuickLogButton />);
+    renderWithProviders(<QuickLogButton />);
 
     const menuButton = screen.getByRole("button", { name: "More weight log options" });
     menuButton.focus();
