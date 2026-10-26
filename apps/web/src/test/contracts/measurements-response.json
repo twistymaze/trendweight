@@ -1,0 +1,37 @@
+{
+  "computedMeasurements": [
+    {
+      "date": "sample",
+      "actualWeight": 1.5,
+      "trendWeight": 1.5,
+      "weightIsInterpolated": true,
+      "fatIsInterpolated": true,
+      "actualFatPercent": 1.5,
+      "trendFatPercent": 1.5,
+      "trendFatMass": 1.5,
+      "trendLeanMass": 1.5
+    }
+  ],
+  "sourceData": [
+    {
+      "source": "sample",
+      "lastUpdate": "2024-01-15T06:30:00Z",
+      "measurements": [
+        {
+          "date": "sample",
+          "time": "sample",
+          "weight": 1.5,
+          "fatRatio": 1.5
+        }
+      ]
+    }
+  ],
+  "isMe": true,
+  "providerStatus": {
+    "withings": {
+      "success": true,
+      "error": "sample",
+      "message": "sample"
+    }
+  }
+}

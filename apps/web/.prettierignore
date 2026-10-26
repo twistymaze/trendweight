@@ -19,3 +19,5 @@ coverage/
 # Misc
 *.log
 .DS_Store
+# Written by the API contract snapshot tests (UPDATE_API_CONTRACTS=1)
+src/test/contracts/*.json

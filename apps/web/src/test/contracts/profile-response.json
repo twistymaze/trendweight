@@ -1,0 +1,19 @@
+{
+  "user": {
+    "firstName": "sample",
+    "goalStart": "sample",
+    "goalWeight": 1.5,
+    "plannedPoundsPerWeek": 1.5,
+    "dayStartOffset": 3,
+    "useMetric": true,
+    "showCalories": true,
+    "hideDataBeforeStart": true,
+    "trendAlgorithm": "sample",
+    "sharingEnabled": true,
+    "sharingToken": "sample",
+    "isMigrated": true,
+    "isNewlyMigrated": true
+  },
+  "isMe": true,
+  "timestamp": "2024-01-15T06:30:00Z"
+}

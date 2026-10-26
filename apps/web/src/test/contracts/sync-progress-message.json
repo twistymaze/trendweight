@@ -1,0 +1,14 @@
+{
+  "id": "11111111-2222-3333-4444-555555555555",
+  "status": "sample",
+  "message": "sample",
+  "providers": [
+    {
+      "provider": "sample",
+      "stage": "sample",
+      "message": "sample",
+      "current": 3,
+      "total": 3
+    }
+  ]
+}
