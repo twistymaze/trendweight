@@ -135,4 +135,47 @@ public class WithingsTokenRefreshTests
         _providerLinkServiceMock.Verify(x => x.StoreProviderLinkAsync(It.IsAny<Guid>(), It.IsAny<string>(),
             It.IsAny<Dictionary<string, object>>(), It.IsAny<string?>()), Times.Never);
     }
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests, ProviderSyncError.NetworkError)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, ProviderSyncError.NetworkError)]
+    [InlineData(HttpStatusCode.InternalServerError, ProviderSyncError.Unknown)]
+    public async Task SyncMeasurementsAsync_WhenRefreshHasHttpFailure_MapsStatusAndKeepsLink(HttpStatusCode status, ProviderSyncError expected)
+    {
+        var userId = Guid.NewGuid();
+        StoreLink(userId, ProviderTokens.Expired());
+        _http.WhenUrlContains(TokenUrl, status, $"{{\"status\":{(int)status},\"error\":\"{status}\"}}");
+
+        var result = await _sut.SyncMeasurementsAsync(userId, true, DateTime.UtcNow.AddDays(-5));
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Be(expected);
+        _http.Requests.Should().NotContain(r => r.Uri.ToString().Contains(MeasureUrl));
+        VerifyLinkUnchanged();
+        ProviderServiceBase.HasRefreshLock(userId, "withings").Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("{\"status\":0,\"body\":{\"access_tok")]
+    [InlineData("<html><body>Bad Gateway</body></html>")]
+    public async Task SyncMeasurementsAsync_WhenRefreshBodyIsMalformed_ReportsUnknownAndKeepsLink(string body)
+    {
+        var userId = Guid.NewGuid();
+        StoreLink(userId, ProviderTokens.Expired());
+        _http.WhenUrlContains(TokenUrl, HttpStatusCode.OK, body);
+
+        var result = await _sut.SyncMeasurementsAsync(userId, true, DateTime.UtcNow.AddDays(-5));
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Be(ProviderSyncError.Unknown);
+        _http.Requests.Should().NotContain(r => r.Uri.ToString().Contains(MeasureUrl));
+        VerifyLinkUnchanged();
+    }
+
+    private void VerifyLinkUnchanged()
+    {
+        _providerLinkServiceMock.Verify(x => x.StoreProviderLinkAsync(It.IsAny<Guid>(), It.IsAny<string>(),
+            It.IsAny<Dictionary<string, object>>(), It.IsAny<string?>()), Times.Never);
+        _providerLinkServiceMock.Verify(x => x.RemoveProviderLinkAsync(It.IsAny<Guid>(), It.IsAny<string>()), Times.Never);
+    }
 }

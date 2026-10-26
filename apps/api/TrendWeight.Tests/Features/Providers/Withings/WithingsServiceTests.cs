@@ -66,6 +66,7 @@ public class WithingsServiceTests
     [Theory]
     [InlineData(79350, -3, "79.35")]
     [InlineData(7935, -2, "79.35")]
+    [InlineData(793500, -4, "79.35")]
     [InlineData(80, 0, "80")]
     public async Task SyncMeasurementsAsync_ScalesWeightByUnitExponent(int value, int unit, string expectedKg)
     {
@@ -572,6 +573,45 @@ public class WithingsServiceTests
         thrown.Which.IsRetryable.Should().BeFalse();
         VerifyNothingStored();
     }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest, "INVALID_CODE", false)]
+    [InlineData(HttpStatusCode.Unauthorized, "UNAUTHORIZED", false)]
+    [InlineData(HttpStatusCode.TooManyRequests, "RATE_LIMITED", true)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, "SERVICE_UNAVAILABLE", true)]
+    [InlineData(HttpStatusCode.InternalServerError, "UNEXPECTED_ERROR", false)]
+    public async Task ExchangeAuthorizationCodeAsync_WithHttpFailure_MapsStatusWithoutStoring(HttpStatusCode status, string errorCode, bool retryable)
+    {
+        _http.WhenUrlContains(TokenUrl, status, Error((int)status, status.ToString()));
+
+        var act = () => _sut.ExchangeAuthorizationCodeAsync("code", Callback, Guid.NewGuid());
+
+        var thrown = await act.Should().ThrowAsync<ProviderException>();
+        thrown.Which.ErrorCode.Should().Be(errorCode);
+        thrown.Which.StatusCode.Should().Be(status);
+        thrown.Which.IsRetryable.Should().Be(retryable);
+        VerifyNothingStored();
+    }
+
+    [Theory]
+    [MemberData(nameof(MalformedTokenBodies))]
+    public async Task ExchangeAuthorizationCodeAsync_WithMalformedBody_LogsAndThrowsWithoutStoring(string caseName, string body)
+    {
+        _http.WhenUrlContains(TokenUrl, HttpStatusCode.OK, body);
+
+        var act = () => _sut.ExchangeAuthorizationCodeAsync("code", Callback, Guid.NewGuid());
+
+        await act.Should().ThrowAsync<JsonException>(caseName);
+        _logs.ShouldHaveLogged(LogLevel.Error, "Failed to deserialize Withings token response");
+        VerifyNothingStored();
+    }
+
+    public static TheoryData<string, string> MalformedTokenBodies => new()
+    {
+        { "empty body", string.Empty },
+        { "truncated JSON", Token()[..30] },
+        { "HTML error page", "<html><body>Bad Gateway</body></html>" }
+    };
 
     [Fact]
     public async Task ExchangeAuthorizationCodeAsync_WhenDuplicateRequestAndLinkExists_ReturnsTrueWithoutStoring()
