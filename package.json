@@ -31,7 +31,7 @@
     "husky": "9.1.7",
     "lint-staged": "17.6.0",
     "release-please": "17.11.2",
-    "turbo": "2.11.9"
+    "turbo": "2.11.10"
   },
   "engines": {
     "node": ">=26",
@@ -39,7 +39,7 @@
   },
   "overrides": {
     "katex": "^0.19.0",
-    "postcss-selector-parser": "^7.1.6",
+    "postcss-selector-parser": "7.1.7",
     "seroval": "^1.6.11",
     "seroval-plugins": "^1.6.11"
   }
