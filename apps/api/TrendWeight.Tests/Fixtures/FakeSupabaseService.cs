@@ -364,6 +364,8 @@ public sealed class FakeSupabaseService : ISupabaseService
 
         public IPostgrestTable<T> Order(string foreignTable, string column, Ordering ordering, NullPosition nullPosition = NullPosition.First) => throw Unsupported(nameof(Order));
 
+        public IPostgrestTable<T> StripNulls() => throw Unsupported(nameof(StripNulls));
+
         public IPostgrestTable<T> Range(int from) => throw Unsupported(nameof(Range));
 
         public IPostgrestTable<T> Range(int from, int to) => throw Unsupported(nameof(Range));

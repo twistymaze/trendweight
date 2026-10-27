@@ -1,5 +1,5 @@
 # Stage 1: Build frontend
-FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS frontend-build
+FROM node:26-alpine@sha256:40cd011b55415bc894e45b02fdd5a5dfde056921b7d23a64c74f80497af48797 AS frontend-build
 
 WORKDIR /app
 
@@ -43,7 +43,7 @@ WORKDIR /app/apps/web
 RUN npm run build
 
 # Stage 2: Build backend
-FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29 AS backend-build
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:de4fe90a98845d75910b9769662465c84de1a934665c431279d1382b2bddc02b AS backend-build
 
 WORKDIR /src
 
@@ -59,7 +59,7 @@ RUN dotnet restore TrendWeight.sln --locked-mode
 RUN dotnet publish TrendWeight/TrendWeight.csproj --no-restore -c Release -o /app/publish
 
 # Stage 3: Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:2d584d8147faddb0d678c5748d47953e5b8e18621ed4fb7049a91381d9d7746f AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:de0ee358cdd672f7017a003bed21e9ac9ed48a27c922a59b18175b6e82fa7fee AS runtime
 
 WORKDIR /app
 

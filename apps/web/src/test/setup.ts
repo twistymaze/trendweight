@@ -4,7 +4,7 @@ import { afterEach, vi, beforeAll, afterAll } from "vitest";
 import { server } from "./mocks/server";
 
 // Start MSW server before all tests
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 
 // Reset handlers after each test
 afterEach(() => {

@@ -1,0 +1,21 @@
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+permissions:
+  contents: read
+
+jobs:
+  # The job name must be `copilot-setup-steps` for the cloud agent to run it.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disable turbo telemetry
+        run: echo "TURBO_TELEMETRY_DISABLED=1" >> "$GITHUB_ENV"
