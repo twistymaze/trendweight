@@ -159,6 +159,21 @@ public class MeasurementComputationServiceTests
         result[3].WeightIsInterpolated.Should().BeFalse();
     }
 
+    [Fact]
+    public void ComputeMeasurements_WithFractionalDailyStep_KeepsThreeDecimalsOfInterpolatedWeight()
+    {
+        var profile = CreateTestProfile();
+        var sourceData = CreateTestSourceData(
+            ("2024-01-01", "08:00:00", 70.0m, null),
+            ("2024-01-04", "08:00:00", 70.5m, null) // 0.1667 kg per day
+        );
+
+        var result = _sut.ComputeMeasurements(sourceData, profile);
+
+        result.Select(r => r.ActualWeight).Should().Equal(70.0m, 70.167m, 70.333m, 70.5m);
+        result.Select(r => r.WeightIsInterpolated).Should().Equal(false, true, true, false);
+    }
+
     #endregion
 
     #region Fat Data Tests
@@ -540,14 +555,12 @@ public class MeasurementComputationServiceTests
         // Assert
         result.Should().HaveCount(2);
 
-        // Compare independent calculation vs product of trends
-        var trendWeight = result[1].TrendWeight;
-        var trendFatPercent = result[1].TrendFatPercent!.Value;
-        var productOfTrends = trendWeight * trendFatPercent;
-        var independentTrendFatMass = result[1].TrendFatMass!.Value;
-
-        // They should be different (proving independent calculation is used)
-        Math.Abs(productOfTrends - independentTrendFatMass).Should().BeGreaterThan(0.01m);
+        // Fat mass is trended from daily fat masses (25 -> 27), not derived from the
+        // weight and fat-percent trends (99 * 0.255 = 25.245).
+        result[1].TrendWeight.Should().Be(99.0m);
+        result[1].TrendFatPercent.Should().Be(0.255m);
+        result[1].TrendFatMass.Should().Be(25.2m); // 25 + 0.1 * (27 - 25)
+        result[1].TrendLeanMass.Should().Be(73.8m); // 75 + 0.1 * (63 - 75)
     }
 
     [Theory]

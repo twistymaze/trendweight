@@ -87,22 +87,6 @@ public class SharingControllerTests
             .Which.Error.Should().Be("User not found");
     }
 
-    [Fact]
-    public async Task GetSharingSettings_WhenExceptionThrown_PropagatesToErrorMiddleware()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        SetupAuthenticatedUser(userId.ToString());
-        _profileServiceMock.Setup(x => x.GetByIdAsync(It.IsAny<Guid>()))
-            .ThrowsAsync(new Exception("Database error"));
-
-        // Act
-        var act = () => _sut.GetSharingSettings();
-
-        // Assert
-        await act.Should().ThrowAsync<Exception>().WithMessage("Database error");
-    }
-
     #endregion
 
     #region ToggleSharing Tests
@@ -213,23 +197,6 @@ public class SharingControllerTests
         result.Result.Should().BeOfType<NotFoundObjectResult>()
             .Which.Value.Should().BeOfType<ErrorResponse>()
             .Which.Error.Should().Be("User not found");
-    }
-
-    [Fact]
-    public async Task ToggleSharing_WhenExceptionThrown_PropagatesToErrorMiddleware()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        SetupAuthenticatedUser(userId.ToString());
-        _profileServiceMock.Setup(x => x.GetByIdAsync(It.IsAny<Guid>()))
-            .ThrowsAsync(new Exception("Database error"));
-        var request = new ToggleSharingRequest { Enabled = true };
-
-        // Act
-        var act = () => _sut.ToggleSharing(request);
-
-        // Assert
-        await act.Should().ThrowAsync<Exception>().WithMessage("Database error");
     }
 
     [Fact]

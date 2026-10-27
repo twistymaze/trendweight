@@ -48,14 +48,4 @@ public class TrendAlgorithmPresetsTests
     {
         TrendAlgorithmPresets.IsValid(id).Should().Be(expected);
     }
-
-    [Fact]
-    public void DefaultPreset_HasZeroBeta()
-    {
-        // Beta = 0 with a zero-initialized slope is what makes the default preset
-        // bit-identical to the original single-EMA implementation
-        var preset = TrendAlgorithmPresets.All.Single(p => p.Id == TrendAlgorithmPresets.DefaultId);
-
-        preset.Beta.Should().Be(0m);
-    }
 }

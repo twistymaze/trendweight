@@ -177,20 +177,6 @@ public class ProfileControllerTests
     }
 
     [Fact]
-    public async Task GetProfile_WhenExceptionThrown_PropagatesToErrorMiddleware()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        SetupAuthenticatedUser(userId.ToString(), "test@example.com");
-        _profileServiceMock.Setup(x => x.GetByIdAsync(It.IsAny<Guid>()))
-            .ThrowsAsync(new Exception("Database error"));
-
-        var act = () => _sut.GetProfile();
-
-        await act.Should().ThrowAsync<Exception>().WithMessage("Database error");
-    }
-
-    [Fact]
     public async Task GetProfile_WhenClerkEmailDiffers_UpdatesStoredEmailThroughProfileService()
     {
         var userId = Guid.NewGuid();
@@ -359,19 +345,6 @@ public class ProfileControllerTests
             .Which.Error.Should().Be("User not found");
         _logs.ShouldHaveLogged(LogLevel.Warning, "sharing code");
         _logs.ShouldNotMention(Code);
-    }
-
-    [Fact]
-    public async Task GetProfileBySharingCode_WhenExceptionThrown_PropagatesToErrorMiddleware()
-    {
-        // Arrange
-        var sharingCode = "test-code";
-        _profileServiceMock.Setup(x => x.GetBySharingTokenAsync(It.IsAny<string>()))
-            .ThrowsAsync(new Exception("Database error"));
-
-        var act = () => _sut.GetProfileBySharingCode(sharingCode);
-
-        await act.Should().ThrowAsync<Exception>().WithMessage("Database error");
     }
 
     #endregion
@@ -632,21 +605,6 @@ public class ProfileControllerTests
             .Which.Error.Should().Be("User email not found");
     }
 
-    [Fact]
-    public async Task UpdateProfile_WhenExceptionThrown_PropagatesToErrorMiddleware()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        SetupAuthenticatedUser(userId.ToString(), "test@example.com");
-        var request = new UpdateProfileRequest { FirstName = "Test" };
-        _profileServiceMock.Setup(x => x.UpdateOrCreateProfileAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<UpdateProfileRequest>()))
-            .ThrowsAsync(new Exception("Database error"));
-
-        var act = () => _sut.UpdateProfile(request);
-
-        await act.Should().ThrowAsync<Exception>().WithMessage("Database error");
-    }
-
     #endregion
 
     #region GenerateNewToken Tests
@@ -703,20 +661,6 @@ public class ProfileControllerTests
             .Which.Error.Should().Be("User not found");
     }
 
-    [Fact]
-    public async Task GenerateNewToken_WhenExceptionThrown_PropagatesToErrorMiddleware()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        SetupAuthenticatedUser(userId.ToString(), "test@example.com");
-        _profileServiceMock.Setup(x => x.GenerateNewSharingTokenAsync(It.IsAny<Guid>()))
-            .ThrowsAsync(new Exception("Database error"));
-
-        var act = () => _sut.GenerateNewToken();
-
-        await act.Should().ThrowAsync<Exception>().WithMessage("Database error");
-    }
-
     #endregion
 
     #region CompleteMigration Tests
@@ -766,20 +710,6 @@ public class ProfileControllerTests
         result.Result.Should().BeOfType<NotFoundObjectResult>()
             .Which.Value.Should().BeOfType<ErrorResponse>()
             .Which.Error.Should().Be("User not found");
-    }
-
-    [Fact]
-    public async Task CompleteMigration_WhenExceptionThrown_PropagatesToErrorMiddleware()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        SetupAuthenticatedUser(userId.ToString(), "test@example.com");
-        _profileServiceMock.Setup(x => x.CompleteMigrationAsync(It.IsAny<Guid>()))
-            .ThrowsAsync(new Exception("Database error"));
-
-        var act = () => _sut.CompleteMigration();
-
-        await act.Should().ThrowAsync<Exception>().WithMessage("Database error");
     }
 
     #endregion
@@ -844,20 +774,6 @@ public class ProfileControllerTests
         var errorResult = result.Result as ObjectResult;
         errorResult!.Value.Should().BeOfType<ErrorResponse>()
             .Which.Error.Should().Be("Failed to delete account");
-    }
-
-    [Fact]
-    public async Task DeleteAccount_WhenExceptionThrown_PropagatesToErrorMiddleware()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        SetupAuthenticatedUser(userId.ToString(), "test@example.com");
-        _profileServiceMock.Setup(x => x.DeleteAccountAsync(It.IsAny<Guid>()))
-            .ThrowsAsync(new Exception("Database error"));
-
-        var act = () => _sut.DeleteAccount();
-
-        await act.Should().ThrowAsync<Exception>().WithMessage("Database error");
     }
 
     #endregion

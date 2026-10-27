@@ -150,6 +150,41 @@ public class ClerkAuthenticationHandlerTests
     }
 
     [Fact]
+    public async Task AuthenticateAsync_WithValidTokenButNoEmail_FailsWithoutCreatingAMapping()
+    {
+        // Arrange
+        _context.Request.Headers["Authorization"] = "Bearer valid-token";
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim("sub", "clerk_user_123")
+        }));
+
+        _clerkTokenServiceMock
+            .Setup(x => x.ValidateTokenAsync("valid-token", "https://example.com"))
+            .ReturnsAsync(principal);
+        _clerkTokenServiceMock
+            .Setup(x => x.GetClerkUserId(principal))
+            .Returns("clerk_user_123");
+        _clerkTokenServiceMock
+            .Setup(x => x.GetEmail(principal))
+            .Returns((string?)null);
+        _userAccountMappingServiceMock
+            .Setup(x => x.GetOrCreateMappingAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(new DbUserAccount { Uid = Guid.NewGuid(), ExternalId = "clerk_user_123", Provider = "clerk" });
+
+        // Act
+        var result = await _handler.AuthenticateAsync();
+
+        // Assert
+        Assert.False(result.Succeeded);
+        Assert.Equal("Token missing required claims", result.Failure?.Message);
+        _userAccountMappingServiceMock.Verify(
+            x => x.GetOrCreateMappingAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task AuthenticateAsync_WithValidToken_CreatesAuthenticatedPrincipal()
     {
         // Arrange

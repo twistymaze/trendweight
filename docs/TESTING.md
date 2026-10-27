@@ -75,6 +75,30 @@ Tests of third-party parsing verify that our code reads the documented format
 and survives drift (missing or extra fields, nulls, unknown types, non-200s,
 malformed bodies); they do not verify that providers send documented data.
 
+## Cross-layer guards
+
+These tests fail when a change needs a deliberate decision, not a code fix:
+
+- `Infrastructure/Startup/EndpointAuthorizationInventoryTests.cs` walks every
+  routed `/api` endpoint. Anonymous endpoints must be on its allowlist, `/api/v1`
+  must accept only API keys, internal endpoints must reject API keys, and every
+  protected endpoint must answer 401 without credentials.
+- `Infrastructure/Startup/ServiceRegistrationTests.cs` activates every controller
+  from the real Production container and validates the container on build.
+- `apps/web/src/lib/routes/route-guards.test.ts` loads every file route. Routes
+  that are not on its public list must redirect signed-out visitors to `/login`.
+- API response contracts: `Contracts/ApiContractSnapshotTests.cs` serializes each
+  response type the web app reads (every property populated, real serializer
+  settings) into `apps/web/src/test/contracts/*.json`, and the public v1 OpenAPI
+  document into `apps/api/TrendWeight.Tests/Contracts/openapi-v1.json`.
+  `apps/web/src/test/contracts/contracts.test.ts` checks that every field the web
+  types declare exists in those files with the same JSON type. After an
+  intentional contract change, regenerate the files and review the diff:
+
+  ```bash
+  UPDATE_API_CONTRACTS=1 dotnet test --project apps/api/TrendWeight.Tests --filter-class '*ApiContractSnapshotTests'
+  ```
+
 ## Coverage
 
 Coverage is reported, not gated:

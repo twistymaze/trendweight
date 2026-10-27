@@ -268,6 +268,39 @@ public class ClerkTokenServiceTests
     }
 
     [Fact]
+    public async Task ValidateTokenAsync_WithUnsignedAlgNoneToken_ReturnsNull()
+    {
+        SetupHttpResponse(CreateTestJwks());
+        var now = DateTimeOffset.UtcNow;
+        var header = Base64UrlEncoder.Encode("""{"alg":"none","typ":"JWT"}""");
+        var payload = Base64UrlEncoder.Encode(
+            $$"""{"iss":"{{_testAuthority}}","sub":"user_123","email":"test@example.com","nbf":{{now.AddMinutes(-5).ToUnixTimeSeconds()}},"exp":{{now.AddHours(1).ToUnixTimeSeconds()}}}""");
+        var service = CreateService();
+
+        var principal = await service.ValidateTokenAsync($"{header}.{payload}.");
+
+        Assert.Null(principal);
+    }
+
+    [Fact]
+    public async Task ValidateTokenAsync_WithNotBeforeInTheFuture_ReturnsNull()
+    {
+        SetupHttpResponse(CreateTestJwks());
+        // Beyond the five-minute clock skew allowance.
+        var token = CreateTestToken(
+            issuer: _testAuthority,
+            audience: null,
+            claims: new[] { new Claim("sub", "user_123"), new Claim("email", "test@example.com") },
+            expires: DateTime.UtcNow.AddHours(2),
+            notBefore: DateTime.UtcNow.AddHours(1));
+        var service = CreateService();
+
+        var principal = await service.ValidateTokenAsync(token);
+
+        Assert.Null(principal);
+    }
+
+    [Fact]
     public async Task ValidateTokenAsync_WithRequestOrigin_ValidatesAzpClaim()
     {
         // Arrange
@@ -478,7 +511,7 @@ public class ClerkTokenServiceTests
         """;
     }
 
-    private string CreateTestToken(string issuer, string? audience, Claim[] claims, DateTime? expires = null)
+    private string CreateTestToken(string issuer, string? audience, Claim[] claims, DateTime? expires = null, DateTime? notBefore = null)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_testSigningKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -487,7 +520,7 @@ public class ClerkTokenServiceTests
         {
             Subject = new ClaimsIdentity(claims),
             Expires = expires ?? DateTime.UtcNow.AddHours(1),
-            NotBefore = DateTime.UtcNow.AddMinutes(-5), // Ensure token is valid now
+            NotBefore = notBefore ?? DateTime.UtcNow.AddMinutes(-5), // Ensure token is valid now
             Issuer = issuer,
             Audience = audience,
             SigningCredentials = creds

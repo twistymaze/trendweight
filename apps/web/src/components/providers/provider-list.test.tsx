@@ -1,530 +1,482 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, act, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http } from "msw";
+import { Suspense } from "react";
+import { Toaster, toast } from "sonner";
+import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from "@tanstack/react-router";
+import type { ProviderLink } from "@/lib/api/types";
+import { mockAuth, TEST_TOKEN } from "@/test/auth";
+import { buildProviderLink } from "@/test/fixtures";
+import { server } from "@/test/mocks/server";
+import { json, noContent, recordRequests } from "@/test/msw";
+import { renderWithProviders } from "@/test/render";
 import { ProviderList } from "./provider-list";
-import { useProviderLinks, useProvidersConfig } from "@/lib/api/queries";
-import { useDisconnectProvider, useClearProviderData, useEnableProvider } from "@/lib/api/mutations";
-import { apiRequest } from "@/lib/api/client";
-import { useToast } from "@/lib/hooks/use-toast";
-import { useAuth } from "@/lib/auth/use-auth";
+import type { ProviderListVariant } from "./provider-actions";
 
-// Mock dependencies
-vi.mock("@/lib/api/queries");
-vi.mock("@/lib/api/mutations");
-vi.mock("@/lib/api/client");
-vi.mock("@/lib/hooks/use-toast");
 vi.mock("@/lib/auth/use-auth");
 
-// Mock ConfirmDialog
-vi.mock("@/components/ui/confirm-dialog", () => ({
-  ConfirmDialog: ({ open, onConfirm, title, description, confirmText }: any) =>
-    open ? (
-      <div data-testid="confirm-dialog">
-        <div>{title}</div>
-        <div>{description}</div>
-        <button onClick={onConfirm}>{confirmText}</button>
-      </div>
-    ) : null,
-}));
+const WITHINGS = buildProviderLink("withings", { connectedAt: "2024-01-15T10:00:00Z" });
+const FITBIT = buildProviderLink("fitbit", { connectedAt: "2024-02-01T10:00:00Z" });
+const LEGACY = buildProviderLink("legacy", { connectedAt: "2024-03-01T10:00:00Z" });
+const SUNSET_ARTICLE = "https://ewal.dev/fitbit-google-health-and-whats-next";
 
-// Mock useNavigate and Link
-const mockNavigate = vi.fn();
-vi.mock("@tanstack/react-router", () => ({
-  useNavigate: () => mockNavigate,
-  Link: ({ to, children, className }: { to: string; children: React.ReactNode; className?: string }) => (
-    <a href={to} className={className}>
-      {children}
-    </a>
-  ),
-}));
+interface Backend {
+  links?: ProviderLink[];
+  disabledProviders?: string[];
+}
+
+// An in-memory provider backend: DELETE removes the link and enable clears isDisabled, so the
+// refetch after a mutation's invalidation shows the new state.
+function givenBackend({ links = [WITHINGS], disabledProviders = [] }: Backend = {}) {
+  let current = [...links];
+  server.use(
+    http.get("/api/providers/links", () => json(200, current)),
+    http.get("/api/providers/config", () => json(200, { disabledProviders })),
+    http.delete("/api/providers/:provider", ({ params }) => {
+      if (params.provider === "legacy") {
+        current = current.map((link) => (link.provider === "legacy" ? { ...link, isDisabled: true } : link));
+      } else {
+        current = current.filter((link) => link.provider !== params.provider);
+      }
+      return noContent();
+    }),
+    http.post("/api/providers/:provider/enable", ({ params }) => {
+      current = current.map((link) => (link.provider === params.provider ? { ...link, isDisabled: false } : link));
+      return noContent();
+    }),
+    http.post("/api/providers/:provider/clear-data", () => noContent()),
+  );
+}
+
+// Mount the list in a real router (so Link and useNavigate work) with a dashboard route to land on
+function renderList(variant: ProviderListVariant) {
+  const rootRoute = createRootRoute({
+    component: () => (
+      <>
+        <Outlet />
+        <Toaster />
+      </>
+    ),
+  });
+  const listRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/",
+    component: () => (
+      <Suspense fallback={<p>Suspended</p>}>
+        <ProviderList variant={variant} />
+      </Suspense>
+    ),
+  });
+  const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dashboard", component: () => <p>Dashboard page</p> });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([listRoute, dashboardRoute]),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
+  return { router, ...renderWithProviders(<RouterProvider router={router} />) };
+}
+
+function confirmDialog() {
+  return within(screen.getByRole("alertdialog"));
+}
 
 describe("ProviderList", () => {
-  const mockShowToast = vi.fn();
-  const mockDisconnectMutate = vi.fn();
-  const mockClearDataMutate = vi.fn();
-  const mockEnableMutate = vi.fn();
-
-  const mockProviderLinks = [
-    {
-      provider: "withings",
-      connectedAt: "2024-01-15T10:00:00Z",
-      userId: "123",
-    },
-  ];
+  const assign = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockNavigate.mockClear();
+    mockAuth();
+    assign.mockReset();
+    // jsdom cannot navigate to another origin, so capture the OAuth redirect instead
+    vi.stubGlobal("location", { ...window.location, assign });
+  });
 
-    // Spy on window.location.assign
-    Object.defineProperty(window, "location", {
-      value: { assign: vi.fn() },
-      writable: true,
-    });
-
-    vi.mocked(useToast).mockReturnValue({ showToast: mockShowToast } as any);
-    vi.mocked(useProviderLinks).mockReturnValue({ data: mockProviderLinks } as any);
-    vi.mocked(useProvidersConfig).mockReturnValue({ data: { disabledProviders: [] } } as any);
-    vi.mocked(useDisconnectProvider).mockReturnValue({
-      mutate: mockDisconnectMutate,
-      isPending: false,
-      variables: undefined,
-    } as any);
-    vi.mocked(useClearProviderData).mockReturnValue({
-      mutate: mockClearDataMutate,
-      isPending: false,
-      variables: undefined,
-    } as any);
-    vi.mocked(useEnableProvider).mockReturnValue({
-      mutate: mockEnableMutate,
-      isPending: false,
-      variables: undefined,
-    } as any);
-    vi.mocked(useAuth).mockReturnValue({
-      user: { uid: "test-user", email: "test@example.com", displayName: "Test User" },
-      isLoaded: true,
-      isLoggedIn: true,
-      signOut: vi.fn(),
-      getToken: vi.fn().mockResolvedValue("mock-token"),
-    } as any);
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    toast.dismiss();
   });
 
   describe("link variant", () => {
-    it("should render the page header", () => {
-      render(<ProviderList variant="link" />);
+    it("renders the header, the Withings card, manual entry and Fitbit with its sunset notice", async () => {
+      givenBackend({ links: [] });
+      renderList("link");
 
-      expect(screen.getByText("Connect Your Scale")).toBeInTheDocument();
-      expect(screen.getByText(/Connect your Withings account/)).toBeInTheDocument();
-    });
-
-    it("should render manual entry as a first-class option", () => {
-      render(<ProviderList variant="link" />);
-
-      expect(screen.getByText("Log It Yourself")).toBeInTheDocument();
-      expect(screen.getByText(/Type in your weight/)).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Log Your Weight" })).toHaveAttribute("href", "/log");
-    });
-
-    it("should render provider cards with full layout", () => {
-      render(<ProviderList variant="link" />);
-
+      expect(await screen.findByRole("heading", { name: "Connect Your Scale" })).toBeInTheDocument();
       expect(screen.getByText("Withings Account")).toBeInTheDocument();
       expect(screen.getByText(/Withings creates beautifully designed/)).toBeInTheDocument();
-    });
-
-    it("should offer Fitbit with a connect button and a sunset heads-up when not connected", () => {
-      render(<ProviderList variant="link" />);
-
-      expect(screen.getByText("Fitbit Account")).toBeInTheDocument();
-      expect(screen.getByText("Connect Fitbit Account")).toBeInTheDocument();
+      expect(screen.getByText("Log It Yourself")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Log Your Weight" })).toHaveAttribute("href", "/log");
+      expect(screen.getByRole("button", { name: "Connect Fitbit Account" })).toBeInTheDocument();
       expect(screen.getByText(/expected to stop in September 2026/i)).toBeInTheDocument();
+
+      const scaleLink = screen.getByRole("link", { name: "Get a Withings scale" });
+      expect(scaleLink).toHaveAttribute("href", "https://www.withings.com/us/en/scales");
+      expect(scaleLink).toHaveAttribute("target", "_blank");
+      expect(scaleLink).toHaveAttribute("rel", "noopener noreferrer");
     });
 
-    it("should show a connected Fitbit with the sunset explanation and no connect button", () => {
-      vi.mocked(useProviderLinks).mockReturnValue({
-        data: [...mockProviderLinks, { provider: "fitbit", connectedAt: "2024-02-01T10:00:00Z", userId: "123" }],
-      } as any);
+    it("loads links and config with the bearer token", async () => {
+      givenBackend();
+      const recorder = recordRequests();
+      renderList("link");
 
-      render(<ProviderList variant="link" />);
+      await screen.findByRole("button", { name: "Resync Data" });
+      const calls = await recorder.settled();
+      const gets = calls.filter((call) => call.method === "GET").map((call) => [call.path, call.headers.authorization]);
+      expect(gets).toEqual(
+        expect.arrayContaining([
+          ["/api/providers/links", `Bearer ${TEST_TOKEN}`],
+          ["/api/providers/config", `Bearer ${TEST_TOKEN}`],
+        ]),
+      );
+    });
 
-      expect(screen.getByText("Fitbit Account")).toBeInTheDocument();
+    it("treats a 404 from the links endpoint as no connections", async () => {
+      givenBackend();
+      server.use(http.get("/api/providers/links", () => json(404, { error: "Not found" })));
+      renderList("link");
+
+      expect(await screen.findByRole("button", { name: "Connect Withings Account" })).toBeInTheDocument();
+    });
+
+    it("shows Resync and Disconnect for a connected provider", async () => {
+      givenBackend();
+      renderList("link");
+
+      expect(await screen.findByRole("button", { name: "Resync Data" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Disconnect" })).toBeEnabled();
+      expect(screen.queryByRole("button", { name: "Connect Withings Account" })).not.toBeInTheDocument();
+    });
+
+    it("shows a connected Fitbit with its sunset notice but no connect button", async () => {
+      givenBackend({ links: [WITHINGS, FITBIT] });
+      renderList("link");
+
+      expect(await screen.findByText("Fitbit Account")).toBeInTheDocument();
       expect(screen.getByText(/expected to stop in September 2026/i)).toBeInTheDocument();
-      expect(screen.queryByText("Connect Fitbit Account")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Connect Fitbit Account" })).not.toBeInTheDocument();
     });
 
-    it("should hide Fitbit on the link page when shut off, even when connected", () => {
-      vi.mocked(useProvidersConfig).mockReturnValue({ data: { disabledProviders: ["fitbit"] } } as any);
-      vi.mocked(useProviderLinks).mockReturnValue({
-        data: [...mockProviderLinks, { provider: "fitbit", connectedAt: "2024-02-01T10:00:00Z", userId: "123" }],
-      } as any);
+    it("hides a shut-off Fitbit on the link page even when connected", async () => {
+      givenBackend({ links: [WITHINGS, FITBIT], disabledProviders: ["fitbit"] });
+      renderList("link");
 
-      render(<ProviderList variant="link" />);
-
-      expect(screen.getByText("Withings Account")).toBeInTheDocument();
+      expect(await screen.findByText("Withings Account")).toBeInTheDocument();
       expect(screen.queryByText("Fitbit Account")).not.toBeInTheDocument();
       expect(screen.queryByText(/Fitbit syncing has ended/i)).not.toBeInTheDocument();
     });
 
-    it("should show connected state for connected providers", () => {
-      render(<ProviderList variant="link" />);
-
-      // Withings is connected
-      expect(screen.getByText("Resync Data")).toBeInTheDocument();
-      expect(screen.getByText("Disconnect")).toBeInTheDocument();
-    });
-
-    it("should show connect button for unconnected providers", () => {
-      vi.mocked(useProviderLinks).mockReturnValue({ data: [] } as any);
-      render(<ProviderList variant="link" />);
-
-      expect(screen.getByText("Connect Withings Account")).toBeInTheDocument();
-    });
-
-    it("should handle connect action", async () => {
+    it.each([
+      ["Withings", "/api/withings/link"],
+      ["Fitbit", "/api/fitbit/link"],
+    ])("connects %s by redirecting to the authorization URL from %s", async (name, path) => {
       const user = userEvent.setup();
-      vi.mocked(apiRequest).mockResolvedValue({ authorizationUrl: "https://withings.com/auth" });
-      vi.mocked(useProviderLinks).mockReturnValue({ data: [] } as any);
+      givenBackend({ links: [] });
+      server.use(http.get(path, () => json(200, { authorizationUrl: `https://auth.example/${name}` })));
+      const recorder = recordRequests();
+      renderList("link");
 
-      render(<ProviderList variant="link" />);
+      await user.click(await screen.findByRole("button", { name: `Connect ${name} Account` }));
 
-      await user.click(screen.getByText("Connect Withings Account"));
-
-      expect(apiRequest).toHaveBeenCalledWith("/withings/link", { token: "mock-token" });
-      expect(window.location.assign).toHaveBeenCalledWith("https://withings.com/auth");
+      await waitFor(() => expect(assign).toHaveBeenCalledWith(`https://auth.example/${name}`));
+      const [request] = recorder.byPath(path);
+      expect(request.method).toBe("GET");
+      expect(request.headers.authorization).toBe(`Bearer ${TEST_TOKEN}`);
     });
 
-    it("should handle connect error", async () => {
-      // Suppress expected console.error for this test
-      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
+    it("shows a toast and stays put when the authorization URL request fails", async () => {
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
       const user = userEvent.setup();
-      vi.mocked(apiRequest).mockRejectedValue(new Error("Network error"));
-      vi.mocked(useProviderLinks).mockReturnValue({ data: [] } as any);
+      givenBackend({ links: [] });
+      server.use(http.get("/api/withings/link", () => json(500, { error: "Internal server error" })));
+      renderList("link");
 
-      render(<ProviderList variant="link" />);
+      await user.click(await screen.findByRole("button", { name: "Connect Withings Account" }));
 
-      await user.click(screen.getByText("Connect Withings Account"));
-
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith({
-          title: "Connection Failed",
-          description: "Failed to connect to withings. Please try again.",
-          variant: "error",
-        });
-      });
-
-      consoleErrorSpy.mockRestore();
+      expect(await screen.findByText("Connection Failed")).toBeInTheDocument();
+      expect(screen.getByText("Failed to connect to withings. Please try again.")).toBeInTheDocument();
+      expect(assign).not.toHaveBeenCalled();
+      consoleError.mockRestore();
     });
 
-    it("should handle clear data action", async () => {
+    it("clears the provider's data and goes to the dashboard to resync", async () => {
       const user = userEvent.setup();
+      givenBackend();
+      const recorder = recordRequests();
+      const { router } = renderList("link");
 
-      render(<ProviderList variant="link" />);
+      await user.click(await screen.findByRole("button", { name: "Resync Data" }));
 
-      await user.click(screen.getByText("Resync Data"));
+      expect(await screen.findByText("Dashboard page")).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe("/dashboard");
+      const [request] = recorder.byPath("/api/providers/withings/clear-data");
+      expect(request.method).toBe("POST");
+      expect(request.headers.authorization).toBe(`Bearer ${TEST_TOKEN}`);
+    });
 
-      expect(mockClearDataMutate).toHaveBeenCalledWith(
-        "withings",
-        expect.objectContaining({
-          onSuccess: expect.any(Function),
-          onError: expect.any(Function),
+    it("shows Syncing... and disables the button while the clear is in flight", async () => {
+      const user = userEvent.setup();
+      givenBackend();
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      server.use(
+        http.post("/api/providers/withings/clear-data", async () => {
+          await gate;
+          return noContent();
         }),
       );
+      renderList("link");
 
-      // Simulate success callback
-      const successCallback = mockClearDataMutate.mock.calls[0][1].onSuccess;
-      successCallback();
+      await user.click(await screen.findByRole("button", { name: "Resync Data" }));
 
-      // Should navigate to dashboard on success
-      expect(mockNavigate).toHaveBeenCalledWith({ to: "/dashboard" });
+      expect(await screen.findByRole("button", { name: "Syncing..." })).toBeDisabled();
+      release();
+      expect(await screen.findByText("Dashboard page")).toBeInTheDocument();
     });
 
-    it("should show clear data pending state", () => {
-      vi.mocked(useClearProviderData).mockReturnValue({
-        mutate: mockClearDataMutate,
-        isPending: true,
-        variables: "withings",
-      } as any);
-
-      render(<ProviderList variant="link" />);
-
-      expect(screen.getByText("Syncing...")).toBeInTheDocument();
-    });
-
-    it("should show disconnect confirmation dialog", async () => {
+    it("shows a toast and does not navigate when the clear fails", async () => {
       const user = userEvent.setup();
+      givenBackend();
+      server.use(http.post("/api/providers/withings/clear-data", () => json(500, { error: "boom" })));
+      const { router } = renderList("link");
 
-      render(<ProviderList variant="link" />);
+      await user.click(await screen.findByRole("button", { name: "Resync Data" }));
 
-      await user.click(screen.getByText("Disconnect"));
-
-      expect(screen.getByTestId("confirm-dialog")).toBeInTheDocument();
-      expect(screen.getByText("Disconnect Withings?")).toBeInTheDocument();
-      expect(screen.getByText("This will remove all weight data from this provider.")).toBeInTheDocument();
+      expect(await screen.findByText("Resync Failed")).toBeInTheDocument();
+      expect(screen.getByText("Failed to resync Withings data. Please try again.")).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe("/");
+      expect(screen.getByRole("button", { name: "Resync Data" })).toBeEnabled();
     });
 
-    it("should handle disconnect confirmation", async () => {
+    it("asks for confirmation before disconnecting and sends nothing on cancel", async () => {
       const user = userEvent.setup();
+      givenBackend();
+      const recorder = recordRequests();
+      renderList("link");
 
-      render(<ProviderList variant="link" />);
+      await user.click(await screen.findByRole("button", { name: "Disconnect" }));
 
-      await user.click(screen.getByText("Disconnect"));
+      expect(confirmDialog().getByRole("heading", { name: "Disconnect Withings?" })).toBeInTheDocument();
+      expect(confirmDialog().getByText("This will remove all weight data from this provider.")).toBeInTheDocument();
+      expect(confirmDialog().queryByText(/you may not be able to reconnect/i)).not.toBeInTheDocument();
 
-      // Click the confirm button in the dialog
-      await user.click(within(screen.getByTestId("confirm-dialog")).getByRole("button"));
+      await user.click(confirmDialog().getByRole("button", { name: "Cancel" }));
 
-      expect(mockDisconnectMutate).toHaveBeenCalledWith(
-        "withings",
-        expect.objectContaining({
-          onSuccess: expect.any(Function),
-          onError: expect.any(Function),
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      expect(recorder.calls.filter((call) => call.method === "DELETE")).toEqual([]);
+    });
+
+    it("disconnects after confirmation, refetches the links and shows a success toast", async () => {
+      const user = userEvent.setup();
+      givenBackend();
+      const recorder = recordRequests();
+      renderList("link");
+
+      await user.click(await screen.findByRole("button", { name: "Disconnect" }));
+      await user.click(confirmDialog().getByRole("button", { name: "Disconnect" }));
+
+      expect(await screen.findByText("Withings has been disconnected successfully.")).toBeInTheDocument();
+      expect(screen.getByText("Disconnected")).toBeInTheDocument();
+      // The invalidated links query refetches, so the card offers to connect again
+      expect(await screen.findByRole("button", { name: "Connect Withings Account" })).toBeInTheDocument();
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+
+      const [request] = recorder.byPath("/api/providers/withings");
+      expect(request.method).toBe("DELETE");
+      expect(request.headers.authorization).toBe(`Bearer ${TEST_TOKEN}`);
+    });
+
+    it("shows a failure toast and keeps the connection when the disconnect fails", async () => {
+      const user = userEvent.setup();
+      givenBackend();
+      server.use(http.delete("/api/providers/withings", () => json(500, { error: "boom" })));
+      renderList("link");
+
+      await user.click(await screen.findByRole("button", { name: "Disconnect" }));
+      await user.click(confirmDialog().getByRole("button", { name: "Disconnect" }));
+
+      expect(await screen.findByText("Disconnect Failed")).toBeInTheDocument();
+      expect(screen.getByText("Failed to disconnect Withings. Please try again.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Resync Data" })).toBeInTheDocument();
+    });
+
+    it("shows Disconnecting... while the disconnect is in flight", async () => {
+      const user = userEvent.setup();
+      givenBackend();
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      server.use(
+        http.delete("/api/providers/withings", async () => {
+          await gate;
+          return noContent();
         }),
       );
+      renderList("link");
 
-      // Simulate success callback
-      await act(async () => {
-        const successCallback = mockDisconnectMutate.mock.calls[0][1].onSuccess;
-        successCallback();
-      });
+      await user.click(await screen.findByRole("button", { name: "Disconnect" }));
+      await user.click(confirmDialog().getByRole("button", { name: "Disconnect" }));
 
-      expect(mockShowToast).toHaveBeenCalledWith({
-        title: "Disconnected",
-        description: "Withings has been disconnected successfully.",
-        variant: "success",
-      });
+      expect(await screen.findByRole("button", { name: "Disconnecting..." })).toBeDisabled();
+      release();
+      expect(await screen.findByText("Withings has been disconnected successfully.")).toBeInTheDocument();
     });
 
-    it("should warn about the Fitbit sunset when disconnecting Fitbit", async () => {
+    it("warns about the Fitbit sunset when disconnecting Fitbit", async () => {
       const user = userEvent.setup();
-      vi.mocked(useProviderLinks).mockReturnValue({
-        data: [{ provider: "fitbit", connectedAt: "2024-02-01T10:00:00Z", userId: "123" }],
-      } as any);
+      givenBackend({ links: [FITBIT] });
+      renderList("link");
 
-      render(<ProviderList variant="link" />);
+      await user.click(await screen.findByRole("button", { name: "Disconnect" }));
 
-      await user.click(screen.getByText("Disconnect"));
-
-      const dialog = screen.getByTestId("confirm-dialog");
-      expect(within(dialog).getByText("Disconnect Fitbit?")).toBeInTheDocument();
-      expect(within(dialog).getByText(/you may not be able to reconnect/i)).toBeInTheDocument();
-      expect(within(dialog).getByRole("link", { name: /read more about what's happening/i })).toHaveAttribute(
-        "href",
-        "https://ewal.dev/fitbit-google-health-and-whats-next",
-      );
-    });
-
-    it("should not show the Fitbit sunset warning when disconnecting Withings", async () => {
-      const user = userEvent.setup();
-
-      render(<ProviderList variant="link" />);
-
-      await user.click(screen.getByText("Disconnect"));
-
-      const dialog = screen.getByTestId("confirm-dialog");
-      expect(within(dialog).getByText("Disconnect Withings?")).toBeInTheDocument();
-      expect(within(dialog).queryByText(/you may not be able to reconnect/i)).not.toBeInTheDocument();
-    });
-
-    it("should render external links with proper attributes", () => {
-      render(<ProviderList variant="link" />);
-
-      const withingsLink = screen.getByText("Get a Withings scale");
-      expect(withingsLink).toHaveAttribute("href", "https://www.withings.com/us/en/scales");
-      expect(withingsLink).toHaveAttribute("target", "_blank");
-      expect(withingsLink).toHaveAttribute("rel", "noopener noreferrer");
+      expect(confirmDialog().getByRole("heading", { name: "Disconnect Fitbit?" })).toBeInTheDocument();
+      expect(confirmDialog().getByText(/you may not be able to reconnect/i)).toBeInTheDocument();
+      expect(confirmDialog().getByRole("link", { name: /read more about what's happening/i })).toHaveAttribute("href", SUNSET_ARTICLE);
     });
   });
 
   describe("settings variant", () => {
-    it("should render compact layout for settings", () => {
-      render(<ProviderList variant="settings" />);
+    it("lists compact rows with connection dates and no descriptions", async () => {
+      givenBackend();
+      renderList("settings");
 
-      // Should not show descriptions
+      expect(await screen.findByText(/Connected 1\/15\/2024/)).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Withings" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Fitbit" })).toBeInTheDocument();
+      expect(screen.getByText("Not connected")).toBeInTheDocument();
       expect(screen.queryByText(/Withings creates beautifully designed/)).not.toBeInTheDocument();
-
-      // Should show both providers; Fitbit remains offerable even when not connected
-      expect(screen.getByText("Withings")).toBeInTheDocument();
-      expect(screen.getByText("Fitbit")).toBeInTheDocument();
-    });
-
-    it("should show connection date for connected providers", () => {
-      render(<ProviderList variant="settings" />);
-
-      expect(screen.getByText(/Connected 1\/15\/2024/)).toBeInTheDocument();
-    });
-
-    it("should show the sunset note for a connected Fitbit", () => {
-      vi.mocked(useProviderLinks).mockReturnValue({
-        data: [...mockProviderLinks, { provider: "fitbit", connectedAt: "2024-02-01T10:00:00Z", userId: "123" }],
-      } as any);
-
-      render(<ProviderList variant="settings" />);
-
-      expect(screen.getByText("Fitbit")).toBeInTheDocument();
-      expect(screen.getByText(/syncing is expected to end in September 2026/i)).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /read more about what's happening/i })).toHaveAttribute(
-        "href",
-        "https://ewal.dev/fitbit-google-health-and-whats-next",
-      );
-    });
-
-    it("should hide an unconnected Fitbit entirely when Fitbit is shut off", () => {
-      vi.mocked(useProvidersConfig).mockReturnValue({ data: { disabledProviders: ["fitbit"] } } as any);
-
-      render(<ProviderList variant="settings" />);
-
-      expect(screen.getByText("Withings")).toBeInTheDocument();
-      expect(screen.queryByText("Fitbit")).not.toBeInTheDocument();
-    });
-
-    it("should keep a connected Fitbit visible without Resync when Fitbit is shut off", () => {
-      vi.mocked(useProvidersConfig).mockReturnValue({ data: { disabledProviders: ["fitbit"] } } as any);
-      vi.mocked(useProviderLinks).mockReturnValue({
-        data: [...mockProviderLinks, { provider: "fitbit", connectedAt: "2024-02-01T10:00:00Z", userId: "123" }],
-      } as any);
-
-      render(<ProviderList variant="settings" />);
-
-      expect(screen.getByText("Fitbit")).toBeInTheDocument();
-      expect(screen.getByText(/Fitbit syncing has ended/i)).toBeInTheDocument();
-      // Withings still offers Resync + Disconnect; shut-off Fitbit only offers a permanent Delete Data
-      expect(screen.getAllByText("Resync")).toHaveLength(1);
-      expect(screen.getAllByText("Disconnect")).toHaveLength(1);
-      expect(screen.getAllByText("Delete Data")).toHaveLength(1);
-    });
-
-    it("should confirm a permanent delete (not a disconnect) for a shut-off Fitbit", async () => {
-      const user = userEvent.setup();
-      vi.mocked(useProvidersConfig).mockReturnValue({ data: { disabledProviders: ["fitbit"] } } as any);
-      vi.mocked(useProviderLinks).mockReturnValue({
-        data: [...mockProviderLinks, { provider: "fitbit", connectedAt: "2024-02-01T10:00:00Z", userId: "123" }],
-      } as any);
-
-      render(<ProviderList variant="settings" />);
-
-      await user.click(screen.getByText("Delete Data"));
-
-      const dialog = screen.getByTestId("confirm-dialog");
-      expect(within(dialog).getByText("Delete Fitbit Data?")).toBeInTheDocument();
-      expect(within(dialog).getByText(/permanently deleted/i)).toBeInTheDocument();
-      expect(within(dialog).getByText(/syncing has ended for good/i)).toBeInTheDocument();
-      expect(within(dialog).queryByText(/winding down/i)).not.toBeInTheDocument();
-      expect(within(dialog).getByRole("button", { name: "Delete Data" })).toBeInTheDocument();
-
-      await user.click(within(dialog).getByRole("button", { name: "Delete Data" }));
-      expect(mockDisconnectMutate).toHaveBeenCalledWith("fitbit", expect.any(Object));
-    });
-
-    it("should order tiles as Withings, Weight Log, Fitbit, Legacy", () => {
-      vi.mocked(useProviderLinks).mockReturnValue({
-        data: [
-          ...mockProviderLinks,
-          { provider: "fitbit", connectedAt: "2024-02-01T10:00:00Z", userId: "123" },
-          { provider: "legacy", connectedAt: "2024-03-01T10:00:00Z", userId: "123" },
-        ],
-      } as any);
-
-      render(<ProviderList variant="settings" />);
-
-      const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
-      expect(headings).toEqual(["Withings", "Weight Log", "Fitbit", "Legacy Data"]);
-    });
-
-    it("should show the weight log with an edit link", () => {
-      render(<ProviderList variant="settings" />);
-
-      expect(screen.getByText("Weight Log")).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Connect Your Scale" })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/log");
     });
 
-    it("should handle withings connection", async () => {
+    it("orders rows as Withings, Weight Log, Fitbit, Legacy Data", async () => {
+      givenBackend({ links: [WITHINGS, FITBIT, LEGACY] });
+      renderList("settings");
+
+      await screen.findByRole("heading", { name: "Legacy Data" });
+      const headings = screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
+      expect(headings).toEqual(["Withings", "Weight Log", "Fitbit", "Legacy Data"]);
+    });
+
+    it("shows the sunset note for a connected Fitbit", async () => {
+      givenBackend({ links: [WITHINGS, FITBIT] });
+      renderList("settings");
+
+      expect(await screen.findByText(/syncing is expected to end in September 2026/i)).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /read more about what's happening/i })).toHaveAttribute("href", SUNSET_ARTICLE);
+    });
+
+    it("hides an unconnected Fitbit when Fitbit is shut off", async () => {
+      givenBackend({ disabledProviders: ["fitbit"] });
+      renderList("settings");
+
+      expect(await screen.findByRole("heading", { name: "Withings" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Fitbit" })).not.toBeInTheDocument();
+    });
+
+    it("offers only Delete Data for a connected, shut-off Fitbit", async () => {
+      givenBackend({ links: [WITHINGS, FITBIT], disabledProviders: ["fitbit"] });
+      renderList("settings");
+
+      expect(await screen.findByText(/Fitbit syncing has ended/i)).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "Resync" })).toHaveLength(1);
+      expect(screen.getAllByRole("button", { name: "Disconnect" })).toHaveLength(1);
+      expect(screen.getAllByRole("button", { name: "Delete Data" })).toHaveLength(1);
+    });
+
+    it("confirms and performs a permanent delete for a shut-off Fitbit", async () => {
       const user = userEvent.setup();
-      vi.mocked(apiRequest).mockResolvedValue({ url: "https://withings.com/auth" });
+      givenBackend({ links: [WITHINGS, FITBIT], disabledProviders: ["fitbit"] });
+      const recorder = recordRequests();
+      renderList("settings");
 
-      vi.mocked(useProviderLinks).mockReturnValue({ data: [] } as any);
-      render(<ProviderList variant="settings" />);
+      await user.click(await screen.findByRole("button", { name: "Delete Data" }));
 
-      const connectButtons = screen.getAllByText("Connect");
-      await user.click(connectButtons[0]); // First is Withings
+      expect(confirmDialog().getByRole("heading", { name: "Delete Fitbit Data?" })).toBeInTheDocument();
+      expect(confirmDialog().getByText(/permanently deleted/i)).toBeInTheDocument();
+      expect(confirmDialog().getByText(/syncing has ended for good/i)).toBeInTheDocument();
+      expect(confirmDialog().queryByText(/winding down/i)).not.toBeInTheDocument();
 
-      expect(apiRequest).toHaveBeenCalledWith("/withings/link", { token: "mock-token" });
-      expect(window.location.assign).toHaveBeenCalledWith("https://withings.com/auth");
+      await user.click(confirmDialog().getByRole("button", { name: "Delete Data" }));
+
+      expect(await screen.findByText("Your Fitbit data has been deleted.")).toBeInTheDocument();
+      expect(screen.getByText("Data Deleted")).toBeInTheDocument();
+      // The deleted, shut-off Fitbit disappears entirely after the refetch
+      await waitFor(() => expect(screen.queryByRole("heading", { name: "Fitbit" })).not.toBeInTheDocument());
+      expect(recorder.byPath("/api/providers/fitbit").map((call) => call.method)).toEqual(["DELETE"]);
+      expect(recorder.byPath("/api/providers/withings")).toEqual([]);
     });
-  });
 
-  describe("loading state", () => {
-    it("should show loading message when data is not available", () => {
-      vi.mocked(useProviderLinks).mockReturnValue({ data: undefined } as any);
-
-      render(<ProviderList />);
-
-      expect(screen.getByText("Loading providers...")).toBeInTheDocument();
-    });
-  });
-
-  describe("error handling", () => {
-    it("should handle clear data error", async () => {
+    it("marks only the provider being disconnected as pending", async () => {
       const user = userEvent.setup();
+      givenBackend({ links: [WITHINGS, FITBIT] });
+      server.use(http.delete("/api/providers/fitbit", () => new Promise<never>(() => {})));
+      renderList("settings");
 
-      render(<ProviderList variant="link" />);
+      await screen.findByRole("heading", { name: "Fitbit" });
+      const [, fitbitDisconnect] = screen.getAllByRole("button", { name: "Disconnect" });
+      await user.click(fitbitDisconnect);
+      await user.click(confirmDialog().getByRole("button", { name: "Disconnect" }));
 
-      await user.click(screen.getByText("Resync Data"));
-
-      // Simulate error callback
-      const errorCallback = mockClearDataMutate.mock.calls[0][1].onError;
-      errorCallback();
-
-      expect(mockShowToast).toHaveBeenCalledWith({
-        title: "Resync Failed",
-        description: "Failed to resync Withings data. Please try again.",
-        variant: "error",
-      });
-    });
-
-    it("should handle disconnect error", async () => {
-      const user = userEvent.setup();
-
-      render(<ProviderList variant="link" />);
-
-      await user.click(screen.getByText("Disconnect"));
-
-      // Click the confirm button in the dialog
-      await user.click(within(screen.getByTestId("confirm-dialog")).getByRole("button"));
-
-      // Simulate error callback
-      await act(async () => {
-        const errorCallback = mockDisconnectMutate.mock.calls[0][1].onError;
-        errorCallback();
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith({
-        title: "Disconnect Failed",
-        description: "Failed to disconnect Withings. Please try again.",
-        variant: "error",
-      });
-    });
-  });
-
-  describe("mutation states", () => {
-    it("should show disconnect pending state", () => {
-      vi.mocked(useDisconnectProvider).mockReturnValue({
-        mutate: mockDisconnectMutate,
-        isPending: true,
-        variables: "withings",
-      } as any);
-
-      render(<ProviderList variant="link" />);
-
-      expect(screen.getByText("Disconnecting...")).toBeInTheDocument();
-    });
-
-    it("should mark only the provider being disconnected as pending in the settings layout", () => {
-      vi.mocked(useProviderLinks).mockReturnValue({
-        data: [...mockProviderLinks, { provider: "fitbit", connectedAt: "2024-02-01T10:00:00Z", userId: "123" }],
-      } as any);
-      vi.mocked(useDisconnectProvider).mockReturnValue({
-        mutate: mockDisconnectMutate,
-        isPending: true,
-        variables: "fitbit",
-      } as any);
-
-      render(<ProviderList variant="settings" />);
-
-      expect(screen.getAllByText("Disconnecting...")).toHaveLength(1);
-      // Withings keeps its label but still waits for the in-flight mutation
+      expect(await screen.findByRole("button", { name: "Disconnecting..." })).toBeDisabled();
+      // Withings keeps its label but waits for the in-flight mutation
       expect(screen.getByRole("button", { name: "Disconnect" })).toBeDisabled();
     });
 
-    it("should disable buttons during mutations", () => {
-      vi.mocked(useClearProviderData).mockReturnValue({
-        mutate: mockClearDataMutate,
-        isPending: true,
-        variables: "withings",
-      } as any);
+    it("connects Withings from the compact Connect button", async () => {
+      const user = userEvent.setup();
+      givenBackend({ links: [] });
+      server.use(http.get("/api/withings/link", () => json(200, { authorizationUrl: "https://auth.example/withings" })));
+      renderList("settings");
 
-      render(<ProviderList variant="settings" />);
+      const [withingsConnect] = await screen.findAllByRole("button", { name: "Connect" });
+      await user.click(withingsConnect);
 
-      expect(screen.getByRole("button", { name: "Syncing..." })).toBeDisabled();
+      await waitFor(() => expect(assign).toHaveBeenCalledWith("https://auth.example/withings"));
+    });
+
+    it("hides visible legacy data via DELETE and flips the button to Enable", async () => {
+      const user = userEvent.setup();
+      givenBackend({ links: [WITHINGS, LEGACY] });
+      const recorder = recordRequests();
+      renderList("settings");
+
+      await user.click(await screen.findByRole("button", { name: "Disable" }));
+
+      expect(await screen.findByText("Legacy Data Disabled")).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Enable" })).toBeEnabled();
+      expect(recorder.byPath("/api/providers/legacy").map((call) => call.method)).toEqual(["DELETE"]);
+    });
+
+    it("shows hidden legacy data via POST enable and flips the button to Disable", async () => {
+      const user = userEvent.setup();
+      givenBackend({ links: [WITHINGS, { ...LEGACY, isDisabled: true }] });
+      const recorder = recordRequests();
+      renderList("settings");
+
+      await user.click(await screen.findByRole("button", { name: "Enable" }));
+
+      expect(await screen.findByText("Legacy Data Enabled")).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Disable" })).toBeEnabled();
+      expect(recorder.byPath("/api/providers/legacy/enable").map((call) => call.method)).toEqual(["POST"]);
+    });
+
+    it("shows a failure toast when enabling legacy data fails", async () => {
+      const user = userEvent.setup();
+      givenBackend({ links: [WITHINGS, { ...LEGACY, isDisabled: true }] });
+      server.use(http.post("/api/providers/legacy/enable", () => json(500, { error: "boom" })));
+      renderList("settings");
+
+      await user.click(await screen.findByRole("button", { name: "Enable" }));
+
+      expect(await screen.findByText("Enable Failed")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Enable" })).toBeEnabled();
+    });
+
+    it("does not show the legacy row on the link page", async () => {
+      givenBackend({ links: [WITHINGS, LEGACY] });
+      renderList("link");
+
+      await screen.findByText("Withings Account");
+      expect(screen.queryByRole("heading", { name: "Legacy Data" })).not.toBeInTheDocument();
     });
   });
 });

@@ -293,6 +293,28 @@ describe("queries", () => {
       expect(calls).toHaveLength(2);
     });
 
+    it("never shows the signed-in user's cached weights on a shared dashboard, or the reverse", async () => {
+      const own = buildMeasurementsResponse({ computedMeasurements: [buildComputedMeasurement({ actualWeight: 80 })] });
+      const shared = buildMeasurementsResponse({ computedMeasurements: [buildComputedMeasurement({ actualWeight: 95 })], isMe: false });
+      server.use(
+        http.get("/api/profile", () => json(200, buildProfileResponse())),
+        http.get("/api/profile/:code", () => json(200, buildProfileResponse({ isMe: false }))),
+        http.get("/api/data", () => json(200, own)),
+        http.get("/api/data/:code", () => json(200, shared)),
+      );
+      // One client for both views, as when a signed-in user opens a share link in the same tab.
+      const wrapper = createProgressWrapper(createTestQueryClient(), syncProgressValue());
+
+      const ownView = renderHook(() => useDashboardQueries(), { wrapper });
+      await waitFor(() => expect(ownView.result.current).not.toBeNull());
+      const sharedView = renderHook(() => useDashboardQueries("abc123"), { wrapper });
+      await waitFor(() => expect(sharedView.result.current).not.toBeNull());
+
+      expect(ownView.result.current.measurementData).toEqual(own.computedMeasurements);
+      expect(sharedView.result.current.measurementData).toEqual(shared.computedMeasurements);
+      expect(sharedView.result.current.isMe).toBe(false);
+    });
+
     it("serves the demo dashboard from bundled data without any request", async () => {
       const requests = recordRequests();
       const syncProgress = syncProgressValue();

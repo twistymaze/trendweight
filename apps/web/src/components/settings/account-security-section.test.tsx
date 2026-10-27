@@ -1,128 +1,68 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { useClerk } from "@clerk/react";
 import { AccountSecuritySection } from "./account-security-section";
 
-// Mock Clerk
-const mockBuildUserProfileUrl = vi.fn();
+// Clerk is an external auth SDK that needs a live publishable key, so only its hook is faked
 vi.mock("@clerk/react", () => ({
   useClerk: vi.fn(),
 }));
 
-// Mock UI components
-vi.mock("@/components/ui/button", () => ({
-  Button: ({ children, asChild, ...props }: any) => {
-    if (asChild) {
-      return (
-        <div data-testid="button-wrapper" {...props}>
-          {children}
-        </div>
-      );
-    }
-    return <button {...props}>{children}</button>;
-  },
-}));
+function givenClerk(clerk: { buildUserProfileUrl?: () => string } | null) {
+  vi.mocked(useClerk).mockReturnValue(clerk as ReturnType<typeof useClerk>);
+}
 
-vi.mock("@/components/ui/card", () => ({
-  CardHeader: ({ children }: any) => <div data-testid="card-header">{children}</div>,
-  CardTitle: ({ children }: any) => <h2 data-testid="card-title">{children}</h2>,
-  CardContent: ({ children, className }: any) => (
-    <div data-testid="card-content" className={className}>
-      {children}
-    </div>
-  ),
-}));
+function profileLink() {
+  return screen.getByRole("link", { name: /Open Account Profile/ });
+}
 
-// Mock lucide-react icon
-vi.mock("lucide-react", () => ({
-  ExternalLink: ({ className }: any) => (
-    <span data-testid="external-link-icon" className={className}>
-      🔗
-    </span>
-  ),
-}));
+function securityLink() {
+  return screen.getByRole("link", { name: /Open Security Settings/ });
+}
 
 describe("AccountSecuritySection", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(useClerk).mockReturnValue({
-      buildUserProfileUrl: mockBuildUserProfileUrl,
-    } as any);
-  });
-
-  it("should render the section with title and description", () => {
-    mockBuildUserProfileUrl.mockReturnValue("https://test.clerk.accounts.dev/user");
+  it("renders the section heading, explanation and the two account areas", () => {
+    givenClerk({ buildUserProfileUrl: () => "https://test.clerk.accounts.dev/user" });
 
     render(<AccountSecuritySection />);
 
-    expect(screen.getByTestId("card-title")).toHaveTextContent("Account Security");
+    expect(screen.getByRole("heading", { level: 2, name: "Account Security" })).toBeInTheDocument();
     expect(screen.getByText(/TrendWeight uses Clerk to handle authentication/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Email & Social Logins" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Passkeys" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "passkey" })).toHaveAttribute("href", "https://developers.google.com/identity/passkeys");
   });
 
-  it("should render both account links with Clerk URLs when available", () => {
-    const clerkProfileUrl = "https://test.clerk.accounts.dev/user";
-    mockBuildUserProfileUrl.mockReturnValue(clerkProfileUrl);
+  it("links to Clerk's profile and security pages in a new tab", () => {
+    givenClerk({ buildUserProfileUrl: () => "https://test.clerk.accounts.dev/user" });
 
     render(<AccountSecuritySection />);
 
-    // Check Account Profile link
-    const profileLink = screen.getByRole("link", { name: /Open Account Profile/ });
-    expect(profileLink).toHaveAttribute("href", clerkProfileUrl);
-    expect(profileLink).toHaveAttribute("target", "_blank");
-    expect(profileLink).toHaveAttribute("rel", "noopener noreferrer");
-
-    // Check Security Settings link
-    const securityLink = screen.getByRole("link", { name: /Open Security Settings/ });
-    expect(securityLink).toHaveAttribute("href", "https://test.clerk.accounts.dev/user/security");
-    expect(securityLink).toHaveAttribute("target", "_blank");
-    expect(securityLink).toHaveAttribute("rel", "noopener noreferrer");
-  });
-
-  it("should use fallback URLs when Clerk buildUserProfileUrl is not available", () => {
-    // Mock useClerk to return an object without buildUserProfileUrl
-    vi.mocked(useClerk).mockReturnValue({} as any);
-
-    render(<AccountSecuritySection />);
-
-    // Check Account Profile link uses fallback
-    const profileLink = screen.getByRole("link", { name: /Open Account Profile/ });
-    expect(profileLink).toHaveAttribute("href", "https://accounts.trendweight.com/user");
-
-    // Check Security Settings link uses fallback
-    const securityLink = screen.getByRole("link", { name: /Open Security Settings/ });
-    expect(securityLink).toHaveAttribute("href", "https://accounts.trendweight.com/user/security");
+    expect(profileLink()).toHaveAttribute("href", "https://test.clerk.accounts.dev/user");
+    expect(securityLink()).toHaveAttribute("href", "https://test.clerk.accounts.dev/user/security");
+    for (const link of [profileLink(), securityLink()]) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
   });
 
   it("appends the security path even when the profile URL has a trailing slash or contains /user elsewhere", () => {
-    mockBuildUserProfileUrl.mockReturnValue("https://user.example.com/user-portal/user/");
+    givenClerk({ buildUserProfileUrl: () => "https://user.example.com/user-portal/user/" });
 
     render(<AccountSecuritySection />);
 
-    const securityLink = screen.getByRole("link", { name: /Open Security Settings/ });
-    expect(securityLink).toHaveAttribute("href", "https://user.example.com/user-portal/user/security");
+    expect(securityLink()).toHaveAttribute("href", "https://user.example.com/user-portal/user/security");
   });
 
-  it("should use fallback URLs when Clerk is not available", () => {
-    // Mock useClerk to return null
-    vi.mocked(useClerk).mockReturnValue(null as any);
+  it.each([
+    ["Clerk has no buildUserProfileUrl", {}],
+    ["Clerk is not loaded", null],
+  ])("falls back to the TrendWeight accounts URLs when %s", (_case, clerk) => {
+    givenClerk(clerk);
 
     render(<AccountSecuritySection />);
 
-    // Check Account Profile link uses fallback
-    const profileLink = screen.getByRole("link", { name: /Open Account Profile/ });
-    expect(profileLink).toHaveAttribute("href", "https://accounts.trendweight.com/user");
-
-    // Check Security Settings link uses fallback
-    const securityLink = screen.getByRole("link", { name: /Open Security Settings/ });
-    expect(securityLink).toHaveAttribute("href", "https://accounts.trendweight.com/user/security");
-  });
-
-  it("should call Clerk buildUserProfileUrl method when available", () => {
-    mockBuildUserProfileUrl.mockReturnValue("https://test.clerk.accounts.dev/user");
-
-    render(<AccountSecuritySection />);
-
-    // The component calls buildUserProfileUrl during render to get the profile URL
-    expect(mockBuildUserProfileUrl).toHaveBeenCalledTimes(1);
+    expect(profileLink()).toHaveAttribute("href", "https://accounts.trendweight.com/user");
+    expect(securityLink()).toHaveAttribute("href", "https://accounts.trendweight.com/user/security");
   });
 });
