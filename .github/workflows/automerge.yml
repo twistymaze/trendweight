@@ -9,7 +9,7 @@ jobs:
   call:
     # Release Please upgrades need review even when the shared preset labels them.
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'manual-review') }}
-    uses: twistymaze/renovate-config/.github/workflows/automerge.yml@f7393091020465a83cf3da651e7c5e28583effe9 # main
+    uses: twistymaze/renovate-config/.github/workflows/automerge.yml@d7ded64bc0ce5a40561591f1a44f267903d41a39 # main
     with:
       app-client-id: ${{ vars.AUTOMERGE_APP_CLIENT_ID }}
     secrets:
