@@ -21,7 +21,7 @@
     <PackageReference Include="Scalar.AspNetCore" Version="2.18.3" />
     <PackageReference Include="Supabase" Version="8.5.0" />
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
-    <PackageReference Include="TimeZoneConverter" Version="7.2.0" />
+    <PackageReference Include="TimeZoneConverter" Version="8.0.0" />
   </ItemGroup>
 
 </Project>
