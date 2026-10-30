@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.12.6](https://github.com/twistymaze/trendweight/compare/v2.12.5...v2.12.6) (2026-10-30)
+
+
+### Tests
+
+* catch cross-layer regressions in PR CI ([#573](https://github.com/twistymaze/trendweight/issues/573)) ([252b166](https://github.com/twistymaze/trendweight/commit/252b166ef2aba373d35359c0a799f56c763c1b2e))
+
+### Dependencies
+
+* Updated dependencies.
+
 ## [2.12.5](https://github.com/twistymaze/trendweight/compare/v2.12.4...v2.12.5) (2026-10-05)
 
 ### Dependencies
