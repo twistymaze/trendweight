@@ -40,8 +40,8 @@
   "overrides": {
     "katex": "0.19.1",
     "postcss-selector-parser": "7.1.7",
-    "seroval": "1.7.3",
-    "seroval-plugins": "1.7.3",
+    "seroval": "1.7.5",
+    "seroval-plugins": "1.7.6",
     "minimatch": "11.0.3"
   }
 }
