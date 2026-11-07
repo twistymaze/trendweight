@@ -570,8 +570,8 @@
       },
       "TimeZoneConverter": {
         "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "vJkfrLROBmMvTDGBj/Fcy6LX3eu7hgzx6bv6/AWlNGZfHRAP3aBqMg4piehijj+bToJlwsj8hAa6Tz6vTMeWPw=="
+        "resolved": "8.0.1",
+        "contentHash": "d+svH8alqTWfqci5L/bWW9Tqx4JbkNUBPQotw+Z5SL8kXYiifYW0323KgFAct3BgHRHZCCPudeNYSLXQ9pfVew=="
       },
       "Websocket.Client": {
         "type": "Transitive",
@@ -666,7 +666,7 @@
           "Scalar.AspNetCore": "[2.18.7, )",
           "Supabase": "[8.7.0, )",
           "System.IdentityModel.Tokens.Jwt": "[8.23.0, )",
-          "TimeZoneConverter": "[8.0.0, )",
+          "TimeZoneConverter": "[8.0.1, )",
           "Yarp.ReverseProxy": "[2.3.0, )"
         }
       }
