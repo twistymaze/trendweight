@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.12.7](https://github.com/twistymaze/trendweight/compare/v2.12.6...v2.12.7) (2026-11-08)
+
+
+### Fixes
+
+* prevent missing seroval packages in dependency updates ([#602](https://github.com/twistymaze/trendweight/issues/602)) ([dd85cf3](https://github.com/twistymaze/trendweight/commit/dd85cf3d9e4ba8f9ef861556865f45e40fc3df4c))
+
+### Dependencies
+
+* Updated dependencies.
+
 ## [2.12.6](https://github.com/twistymaze/trendweight/compare/v2.12.5...v2.12.6) (2026-11-03)
 
 
