@@ -52,7 +52,7 @@
     "rehype-katex": "7.0.1",
     "remark-gfm": "4.0.1",
     "remark-math": "6.0.0",
-    "seroval": "1.7.9",
+    "seroval": "1.7.10",
     "seroval-plugins": "1.7.8",
     "sonner": "2.0.8",
     "tailwind-merge": "3.7.0",
