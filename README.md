@@ -50,39 +50,4 @@ Please open an issue to discuss substantial contributions before implementing th
 
 ## Contributors
 
-<!-- readme: contributors,ervwalter/-,renovate-bot/- -start -->
-<table>
-	<tbody>
-		<tr>
-            <td align="center">
-                <a href="https://github.com/isab3l">
-                    <img src="https://avatars.githubusercontent.com/u/7023907?v=4" width="100;" alt="isab3l"/>
-                    <br />
-                    <sub><b>Isabel</b></sub>
-                </a>
-            </td>
-            <td align="center">
-                <a href="https://github.com/jamesstanleystewart">
-                    <img src="https://avatars.githubusercontent.com/u/16391225?v=4" width="100;" alt="jamesstanleystewart"/>
-                    <br />
-                    <sub><b>James</b></sub>
-                </a>
-            </td>
-            <td align="center">
-                <a href="https://github.com/MitjaBezensek">
-                    <img src="https://avatars.githubusercontent.com/u/2523721?v=4" width="100;" alt="MitjaBezensek"/>
-                    <br />
-                    <sub><b>Mitja Bezenšek</b></sub>
-                </a>
-            </td>
-            <td align="center">
-                <a href="https://github.com/Jah-yee">
-                    <img src="https://avatars.githubusercontent.com/u/166608075?v=4" width="100;" alt="Jah-yee"/>
-                    <br />
-                    <sub><b>RoomWithOutRoof</b></sub>
-                </a>
-            </td>
-		</tr>
-	<tbody>
-</table>
-<!-- readme: contributors,ervwalter/-,renovate-bot/- -end -->
+See the [contributors page](https://github.com/twistymaze/trendweight/graphs/contributors) for everyone who has contributed.
