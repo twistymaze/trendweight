@@ -478,65 +478,65 @@
       },
       "Supabase": {
         "type": "Transitive",
-        "resolved": "8.10.0",
-        "contentHash": "F4AzquJCmgCwMsj0OMEn00UwZpqi4ZYLzxBNHH+CR7i9oFJxe9NUgch65Y05xAjdUN+tDoPCOFqdTcJGbBH7Yw==",
+        "resolved": "8.11.0",
+        "contentHash": "sKgcYPQRTzrvPpdLd8C9fgJW1jGnc5I21riDdelsNzIO+iv2iLCyOAdsEudnJeknvPFtnOenLo/JRlWx6a4pSQ==",
         "dependencies": {
-          "Supabase.Core": "8.10.0",
-          "Supabase.Functions": "8.10.0",
-          "Supabase.Gotrue": "8.10.0",
-          "Supabase.Postgrest": "8.10.0",
-          "Supabase.Realtime": "8.10.0",
-          "Supabase.Storage": "8.10.0"
+          "Supabase.Core": "8.11.0",
+          "Supabase.Functions": "8.11.0",
+          "Supabase.Gotrue": "8.11.0",
+          "Supabase.Postgrest": "8.11.0",
+          "Supabase.Realtime": "8.11.0",
+          "Supabase.Storage": "8.11.0"
         }
       },
       "Supabase.Core": {
         "type": "Transitive",
-        "resolved": "8.10.0",
-        "contentHash": "T+iVIpdSoefdiJyFoNGVpyqGRbaVrRGLsPdQCWtT7C2TqH9VXTAL1CJR5kHHXwztG2QlFUqxmWGy2XO5IPnmuQ=="
+        "resolved": "8.11.0",
+        "contentHash": "tH+LGuUsFEmGvIgQczvqdV1hSbC+o7LPsbmFsJUZvIhiaD8VgATVUkvc7EW/ittp484poC5vIkUTK6V2TqZuBA=="
       },
       "Supabase.Functions": {
         "type": "Transitive",
-        "resolved": "8.10.0",
-        "contentHash": "DHailM3dHk+tdCZTWVAGEksI6NFk6fRRZhVskFFN8fs/rM14pKEQj1pTDIhuHdzcRAl6nrM5Mi/zeYJH+quJlw==",
+        "resolved": "8.11.0",
+        "contentHash": "48TiOGVhm21h+TcP6g+CGRVJC98vBVVB6Tw7/fkKwFkt7XRP3/1ziQUsvaUXtipINqEW3JE/TyqbPFwONYABnA==",
         "dependencies": {
-          "Supabase.Core": "8.10.0"
+          "Supabase.Core": "8.11.0"
         }
       },
       "Supabase.Gotrue": {
         "type": "Transitive",
-        "resolved": "8.10.0",
-        "contentHash": "wsTRNEhSi4EWxLUwPuXLT7bw/vNd/FC7WSuEDZ9eHQmRfYbhSzaxK1EAOqJozqwk+rYn+L32Pw+ylvdjvHhe1w==",
+        "resolved": "8.11.0",
+        "contentHash": "t6zcnu1YkzLRUU6d1PRBVdMm+SukxlPAVsCfaKajhNiS1MsgQRU/Bc8ATGhwiIYZzNb54neU8i56k6vM6/0hZg==",
         "dependencies": {
-          "Supabase.Core": "8.10.0",
+          "Supabase.Core": "8.11.0",
           "System.IdentityModel.Tokens.Jwt": "7.7.3"
         }
       },
       "Supabase.Postgrest": {
         "type": "Transitive",
-        "resolved": "8.10.0",
-        "contentHash": "R6PeDz9eV+wrDQjIVXAAnDW9JECZ/Hb5teeZ8kNQ+m0Eq2fsQM9XutDDFsetR0sLJk4fcm//RWa1bz1MQTR+9w==",
+        "resolved": "8.11.0",
+        "contentHash": "dueQLHvnjPvt9eWXLy2+cc0B0LfM5ltCbieyZL0/1NCm1eyIr3RiNKbWWd0S4NZlyzcL1Cz7rrraYRacjEtgug==",
         "dependencies": {
-          "Supabase.Core": "8.10.0"
+          "Supabase.Core": "8.11.0"
         }
       },
       "Supabase.Realtime": {
         "type": "Transitive",
-        "resolved": "8.10.0",
-        "contentHash": "YH+N9xxJJjQqw6n6aG2T3nbZSsjqDH/3M9mYjHpJt2/xwQiXLYNTfv3g32Dbb6ewvUFKBU5taYiHTQsQwUEJiQ==",
+        "resolved": "8.11.0",
+        "contentHash": "Yguhrqi3AWduhm9a8sMNeo4Ixq09oMWDgPtXf6mrfq0fs2n1t71cZmheB5K/rXReYXRQPHbNNazPLmgt/ykLLw==",
         "dependencies": {
-          "Supabase.Core": "8.10.0",
-          "Supabase.Postgrest": "8.10.0",
+          "Supabase.Core": "8.11.0",
+          "Supabase.Postgrest": "8.11.0",
           "Websocket.Client": "5.5.1"
         }
       },
       "Supabase.Storage": {
         "type": "Transitive",
-        "resolved": "8.10.0",
-        "contentHash": "PTMhNB7g0FrqjvZjqFKBiaRDcb2v97d5aVX9xdQVcusl9BL6Src22b9E49IoAvuRDsWGjm4MW7wKZqmseMqo2w==",
+        "resolved": "8.11.0",
+        "contentHash": "CIsiPWsaOTIFq5ocIhTtqdResyVB86KQMp5NT0z5zrEul0D0dUrNrLfgzlADwDVBAp5SYsgJLEW9lVjU8ohehg==",
         "dependencies": {
           "BirdMessenger": "4.0.0",
           "MimeMapping": "4.0.0",
-          "Supabase.Core": "8.10.0"
+          "Supabase.Core": "8.11.0"
         }
       },
       "System.Diagnostics.EventLog": {
@@ -664,7 +664,7 @@
         "dependencies": {
           "Microsoft.AspNetCore.OpenApi": "[10.0.15, )",
           "Scalar.AspNetCore": "[2.20.0, )",
-          "Supabase": "[8.10.0, )",
+          "Supabase": "[8.11.0, )",
           "System.IdentityModel.Tokens.Jwt": "[8.23.0, )",
           "TimeZoneConverter": "[8.0.1, )",
           "Yarp.ReverseProxy": "[2.3.0, )"
