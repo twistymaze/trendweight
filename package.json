@@ -39,7 +39,7 @@
   },
   "overrides": {
     "katex": "0.19.1",
-    "postcss-selector-parser": "7.1.8",
+    "postcss-selector-parser": "7.2.1",
     "seroval": "1.8.1",
     "seroval-plugins": "1.8.0",
     "minimatch": "11.0.8"
