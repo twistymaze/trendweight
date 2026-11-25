@@ -336,6 +336,8 @@ public sealed class FakeSupabaseService : ISupabaseService
 
         public IPostgrestTable<T> Match(T model) => throw Unsupported(nameof(Match));
 
+        public IPostgrestTable<T> MaxAffected(int rows) => throw Unsupported(nameof(MaxAffected));
+
         public IPostgrestTable<T> Not(IPostgrestQueryFilter filter) => throw Unsupported(nameof(Not));
 
         public IPostgrestTable<T> Not(string columnName, Operator op, Dictionary<string, object> criteria) => throw Unsupported(nameof(Not));
@@ -375,6 +377,8 @@ public sealed class FakeSupabaseService : ISupabaseService
         public IPostgrestTable<T> Select(Expression<Func<T, object[]>> predicate) => throw Unsupported(nameof(Select));
 
         public Task<T?> Single(CancellationToken cancellationToken = default) => throw Unsupported(nameof(Single));
+
+        public Task<T> SingleOrThrowAsync(CancellationToken cancellationToken = default) => throw Unsupported(nameof(SingleOrThrowAsync));
 
         public IPostgrestTable<T> Set(Expression<Func<T, object>> keySelector, object? value) => throw Unsupported(nameof(Set));
 
