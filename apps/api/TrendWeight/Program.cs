@@ -39,6 +39,9 @@ const string ProviderJsonPattern = "^(withings|fitbit|legacy)$";
 
 builder.Services.AddOpenApi("v1", options =>
 {
+    // .NET 11 defaults to OpenAPI 3.2. Keep the public document on 3.1 so client
+    // code generators that do not yet read 3.2 keep working.
+    options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_1;
     options.ShouldInclude = description => description.GroupName == "v1";
     // Document the string formats and value ranges the API enforces. These schema
     // constraints are documentation only - actual validation happens in the
