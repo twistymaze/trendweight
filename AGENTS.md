@@ -52,6 +52,11 @@ without weakening repository checks.
 - Only documentation-only changes may be pushed directly to `main` without the
   owner's explicit approval. Code changes go through a pull request unless the
   owner explicitly authorizes a direct push.
+- Push a branch to GitHub only when it will be a pull request's head or is the
+  agreed target. When fixing an existing pull request, push only to that pull
+  request's branch; do not also push a session or scratch branch. GitHub deletes
+  pull request branches on merge, but any other pushed branch stays until deleted
+  by hand, and cloud sessions cannot delete branches.
 - Never print credentials, OAuth codes, signed state, or token response bodies.
 - Review executable editor/agent hooks and install scripts as code. Do not run
   obfuscated or unexplained startup scripts to investigate them.
