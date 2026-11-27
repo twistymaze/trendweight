@@ -11,7 +11,7 @@ by the deployment while retaining imported history.
 
 ## Run it locally
 
-You need Node 26, the .NET 10 SDK, and development Supabase and Clerk configuration.
+You need Node 26, the .NET 11 SDK, and development Supabase and Clerk configuration.
 Start with [local setup](docs/SETUP.md), which covers credentials, the database,
 and provider callbacks. An npm install alone does not configure these services.
 

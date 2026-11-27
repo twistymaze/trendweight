@@ -6,7 +6,7 @@ application; local development can create, modify, and delete account data.
 ## Prerequisites
 
 - Node 26 and the npm version recorded in the root `package.json`.
-- .NET 10 SDK.
+- .NET 11 SDK.
 - Supabase project or local Supabase stack, and a Clerk development application.
 - Docker and the Supabase CLI if running the database locally.
 - tmux and tmuxinator only if using `npm run dev`.

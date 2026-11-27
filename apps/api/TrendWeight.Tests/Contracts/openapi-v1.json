@@ -1,5 +1,5 @@
 {
-  "openapi": "3.1.1",
+  "openapi": "3.1.2",
   "info": {
     "title": "TrendWeight API",
     "description": "Programmatic access to your own TrendWeight data: read your measurements, and add or edit weight log entries.\n\nAuthenticate every request with the API key from your [settings page](/settings), sent as \u0060Authorization: Bearer sk-...\u0060 (or in an \u0060X-Api-Key\u0060 header).\n\nAll weights are in kilograms, and body fat values are 0\u20131 ratios (0.225 means 22.5%).",
