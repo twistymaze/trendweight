@@ -20,17 +20,6 @@
       "allowedVersions": "<7.0.0"
     },
     {
-      "description": "The dotnet images must match the API's TargetFramework (net10.0): the 11.0 tag currently carries RC builds and even at GA a net10.0 app cannot start on an 11.0 runtime image. Lift this together with the net11.0 TargetFramework bump.",
-      "matchDatasources": [
-        "docker"
-      ],
-      "matchPackageNames": [
-        "mcr.microsoft.com/dotnet/sdk",
-        "mcr.microsoft.com/dotnet/aspnet"
-      ],
-      "allowedVersions": "<11"
-    },
-    {
       "description": "Require publication timestamps for npm and NuGet cooldown checks",
       "matchDatasources": [
         "npm",
