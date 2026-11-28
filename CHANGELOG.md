@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.12.9](https://github.com/twistymaze/trendweight/compare/v2.12.8...v2.12.9) (2026-11-28)
+
+
+### Documentation
+
+* push only the branch that a pull request needs ([7433b71](https://github.com/twistymaze/trendweight/commit/7433b71626c9ddf477e95a34cab083c29d32f142))
+
+### Dependencies
+
+* Updated dependencies.
+
 ## [2.12.8](https://github.com/twistymaze/trendweight/compare/v2.12.7...v2.12.8) (2026-11-14)
 
 ### Dependencies
