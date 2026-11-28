@@ -19,16 +19,16 @@
       },
       "Supabase": {
         "type": "Direct",
-        "requested": "[8.13.0, )",
-        "resolved": "8.13.0",
-        "contentHash": "Azq6In6LZUE6UEgNzCqxetwC2yDA64xBJ8MgHCwZb+PBaUNKr+olNYbe1HQFNt54leT2M3X7gYkt7CFZ+KvC8g==",
+        "requested": "[8.14.0, )",
+        "resolved": "8.14.0",
+        "contentHash": "xxfkLRgbfNGbK4Wpq6sX5mpC+VcLegQxfrzubEVgylzjear/BzCVNoG/RnMTJa3FRYQYjkW2T6uRSwCrIIHo/w==",
         "dependencies": {
-          "Supabase.Core": "8.13.0",
-          "Supabase.Functions": "8.13.0",
-          "Supabase.Gotrue": "8.13.0",
-          "Supabase.Postgrest": "8.13.0",
-          "Supabase.Realtime": "8.13.0",
-          "Supabase.Storage": "8.13.0"
+          "Supabase.Core": "8.14.0",
+          "Supabase.Functions": "8.14.0",
+          "Supabase.Gotrue": "8.14.0",
+          "Supabase.Postgrest": "8.14.0",
+          "Supabase.Realtime": "8.14.0",
+          "Supabase.Storage": "8.14.0"
         }
       },
       "System.IdentityModel.Tokens.Jwt": {
@@ -113,52 +113,52 @@
       },
       "Supabase.Core": {
         "type": "Transitive",
-        "resolved": "8.13.0",
-        "contentHash": "+XLR0bUKVehMe67tINzJa23MduN9VRnbOjLUQyzBTj4osiSmZGamc0tYWJDgiQdiwlk5cyTbWL3DwUiRrGaUwA=="
+        "resolved": "8.14.0",
+        "contentHash": "f7PVKTuJsKBqqN0AdJXDgXwNmNuXTMumxu2oBC3J714UmpylhtUt88nDBsCAJT6BPqPoqxiDlP4O3Efb6/3aPA=="
       },
       "Supabase.Functions": {
         "type": "Transitive",
-        "resolved": "8.13.0",
-        "contentHash": "+bCLgj9YCjZdLVxlzkon6TV19h95qTdjL/5BJL1bz6cP9/dHYQMe7kuvgtOCUfnwTfNzFtDIkcB+W5kl/y2OsA==",
+        "resolved": "8.14.0",
+        "contentHash": "9/oxsSyz1E5QKJzsuGjG2RUIkkjrDuLBAFoFLAQfifwm204JvbzRmWNJpag9Pmq/mJsQ8gEnYtL5OlpexhAX/A==",
         "dependencies": {
-          "Supabase.Core": "8.13.0"
+          "Supabase.Core": "8.14.0"
         }
       },
       "Supabase.Gotrue": {
         "type": "Transitive",
-        "resolved": "8.13.0",
-        "contentHash": "m9hLJU2lh++0zZo0Y3zF0KCJUfSeIVLYtiYzq1XE+FY23bWGmwLPNdrVm2rZVll05zixdWEZ/qLzlM0ZwKVICg==",
+        "resolved": "8.14.0",
+        "contentHash": "1LCrsaIs7A59NQvtvfVe9iaKWGqT/HpiyY/qURjNnkoGy5Necc1DjtvZcL/gNacSZlrqoOulFNYUpOb6RSLX2Q==",
         "dependencies": {
-          "Supabase.Core": "8.13.0",
+          "Supabase.Core": "8.14.0",
           "System.IdentityModel.Tokens.Jwt": "7.7.3"
         }
       },
       "Supabase.Postgrest": {
         "type": "Transitive",
-        "resolved": "8.13.0",
-        "contentHash": "KPMgKNMVFuyxQUv13EXEN6PNInoh+l0zxn0fuzEAuT8FuhVZfkH6UCKX4fdClwW4b3UdEsSwMIK9SxR6/qIoUQ==",
+        "resolved": "8.14.0",
+        "contentHash": "iubEguo6MHtrU2w+MbeRzURh+wlQIStlw8V7c11b8mXn+aEJTFtAyB9mlbirNM82gZ6DC7Y0YJ27rTW2t98zpQ==",
         "dependencies": {
-          "Supabase.Core": "8.13.0"
+          "Supabase.Core": "8.14.0"
         }
       },
       "Supabase.Realtime": {
         "type": "Transitive",
-        "resolved": "8.13.0",
-        "contentHash": "UoxTaUHlseoBsCS6nKQR84lNR8MprcSqPUdTcg81bWpAcBfuZtgiG0puYEXHRW/FP5QUj6A5+xPHvYbcaZIJAQ==",
+        "resolved": "8.14.0",
+        "contentHash": "rSKZoIL25u/Tfy3zpQLt5z7EYIdMD2rX/mOn6LFnL7EAHkVKFuIdpSIF18W2g+W9oNxK6iZC0ZKN5xfC5gPvQA==",
         "dependencies": {
-          "Supabase.Core": "8.13.0",
-          "Supabase.Postgrest": "8.13.0",
+          "Supabase.Core": "8.14.0",
+          "Supabase.Postgrest": "8.14.0",
           "Websocket.Client": "5.5.1"
         }
       },
       "Supabase.Storage": {
         "type": "Transitive",
-        "resolved": "8.13.0",
-        "contentHash": "XCeTbGTA0OxnsbcSkMXWQVRk+66g6ostlwiWF9sNWAl7hwaOg55u8XAKYyiD3a87y+RG2G0aVyX5uEjp9X2wMA==",
+        "resolved": "8.14.0",
+        "contentHash": "r/RP1vmCgnodbjKcA6lGME2Sr7vHRLTkX5IGPqHlu9+t4g54SVSs7ZyxZo29zcwYiROUfd+nXGDlkuP4bVT8pA==",
         "dependencies": {
           "BirdMessenger": "4.0.0",
           "MimeMapping": "4.0.0",
-          "Supabase.Core": "8.13.0"
+          "Supabase.Core": "8.14.0"
         }
       },
       "System.IO.Hashing": {
